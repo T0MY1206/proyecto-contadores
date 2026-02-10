@@ -1,0 +1,154 @@
+/* Estilos básicos para una interfaz limpia y centrada. */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: #f5f7fb;
+  color: #1f2933;
+}
+
+.app-container {
+  max-width: 720px;
+  margin: 3rem auto;
+  padding: 2rem;
+  background: #ffffff;
+  border-radius: 12px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+}
+
+header {
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+header h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.8rem;
+  color: #111827;
+}
+
+header p {
+  margin: 0;
+  color: #4b5563;
+}
+
+form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+label {
+  font-weight: 600;
+  color: #111827;
+}
+
+input[type="file"] {
+  padding: 0.4rem;
+  border-radius: 6px;
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: 999px;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.95rem;
+  font-weight: 600;
+  transition: background 0.15s ease, transform 0.05s ease, box-shadow 0.15s ease;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+  box-shadow: none;
+}
+
+#conciliar-btn {
+  align-self: flex-start;
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  color: #ffffff;
+  box-shadow: 0 8px 18px rgba(37, 99, 235, 0.35);
+}
+
+#conciliar-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8, #1e40af);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.4);
+}
+
+.secondary-btn {
+  background: #f3f4f6;
+  color: #374151;
+}
+
+.secondary-btn:hover:not(:disabled) {
+  background: #e5e7eb;
+}
+
+.mensajes {
+  min-height: 2rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.mensaje {
+  padding: 0.6rem 0.8rem;
+  border-radius: 8px;
+  margin-bottom: 0.4rem;
+}
+
+.mensaje.info {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border: 1px solid #bfdbfe;
+}
+
+.mensaje.error {
+  background: #fef2f2;
+  color: #b91c1c;
+  border: 1px solid #fecaca;
+}
+
+.mensaje.success {
+  background: #ecfdf5;
+  color: #15803d;
+  border: 1px solid #bbf7d0;
+}
+
+footer {
+  margin-top: 2rem;
+  text-align: center;
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+code {
+  background: #f3f4f6;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+
+@media (max-width: 768px) {
+  .app-container {
+    margin: 1.5rem;
+    padding: 1.5rem;
+  }
+}
+

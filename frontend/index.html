@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Conciliador Contable</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-container">
+      <header>
+        <h1>Conciliador Contable</h1>
+        <p>
+          Sube el Excel de <strong>gastos</strong> y el Excel
+          <strong>contable</strong> para generar un archivo conciliado.
+        </p>
+      </header>
+
+      <main>
+        <form id="conciliacion-form">
+          <div class="field">
+            <label for="gastos_file">Archivo de gastos (.xlsx)</label>
+            <input type="file" id="gastos_file" name="gastos_file" accept=".xlsx" required />
+          </div>
+
+          <div class="field">
+            <label for="contable_file">Archivo contable (.xlsx)</label>
+            <input type="file" id="contable_file" name="contable_file" accept=".xlsx" required />
+          </div>
+
+          <button type="submit" id="conciliar-btn">Conciliar</button>
+        </form>
+
+        <div id="mensajes" class="mensajes"></div>
+
+        <button id="descargar-btn" class="secondary-btn" disabled>
+          Descargar último resultado
+        </button>
+      </main>
+
+      <footer>
+        <small>
+          Backend en FastAPI &middot; Los archivos se procesan localmente y el
+          resultado se guarda en la carpeta <code>outputs/</code>.
+        </small>
+      </footer>
+    </div>
+
+    <script src="script.js"></script>
+  </body>
+  </html>
+
