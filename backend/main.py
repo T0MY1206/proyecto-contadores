@@ -3,18 +3,22 @@ Punto de entrada del backend FastAPI para el conciliador contable.
 
 Expone un endpoint POST /conciliar que recibe dos archivos Excel
 en formato multipart/form-data:
-  - gastos_file
+  - extractos_file
   - contable_file
 
-Compara por fecha y monto; devuelve JSON con los movimientos que difieren.
-En caso de error, responde con JSON claro y estructurado.
+Compara por fecha y monto; devuelve JSON con los movimientos que difieren
+y genera un Excel con el resultado en la carpeta outputs.
 """
 
 from __future__ import annotations
 
+from datetime import datetime
+from io import BytesIO
+
+import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
 
 from . import config
 from .conciliador import comparar_movimientos, leer_excel_en_memoria
@@ -58,7 +62,7 @@ async def http_exception_handler(_, exc: HTTPException):
     },
 )
 async def conciliar_endpoint(
-    gastos_file: UploadFile = File(..., description="Archivo Excel con los gastos."),
+    extractos_file: UploadFile = File(..., description="Archivo Excel con los extractos."),
     contable_file: UploadFile = File(..., description="Archivo Excel con el registro contable."),
 ):
     """
@@ -69,21 +73,21 @@ async def conciliar_endpoint(
     - Compara: fecha igual y monto igual = OK.
     - Devuelve los movimientos que no encuentran contraparte.
     """
-    if not gastos_file or not contable_file:
-        raise HTTPException(status_code=400, detail="Debe enviar ambos archivos: gastos y contable.")
+    if not extractos_file or not contable_file:
+        raise HTTPException(status_code=400, detail="Debe enviar ambos archivos: extractos y contable.")
 
     try:
-        gastos_bytes = await gastos_file.read()
+        extractos_bytes = await extractos_file.read()
         contable_bytes = await contable_file.read()
 
-        if not gastos_bytes:
-            raise HTTPException(status_code=400, detail="El archivo de gastos está vacío.")
+        if not extractos_bytes:
+            raise HTTPException(status_code=400, detail="El archivo de extractos está vacío.")
         if not contable_bytes:
             raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
 
         # Lectura de excels en DataFrames
         try:
-            gastos_df = leer_excel_en_memoria(gastos_bytes)
+            extractos_df = leer_excel_en_memoria(extractos_bytes)
             contable_df = leer_excel_en_memoria(contable_bytes)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -94,7 +98,32 @@ async def conciliar_endpoint(
                 "Verifique que el formato sea válido (.xlsx).",
             )
 
-        resultado = comparar_movimientos(gastos_df, contable_df)
+        resultado = comparar_movimientos(extractos_df, contable_df)
+
+        # Generar Excel con los movimientos que difieren
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = f"comparacion_{timestamp}.xlsx"
+        output_path = config.OUTPUTS_DIR / filename
+
+        with BytesIO() as buffer:
+            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
+                df_extractos = pd.DataFrame(resultado["solo_en_extractos"])
+                df_extractos = df_extractos[["fecha", "monto", "descripcion"]] if not df_extractos.empty else pd.DataFrame(
+                    columns=["fecha", "monto", "descripcion"]
+                )
+                df_extractos.columns = ["Fecha", "Monto", "Descripción"]
+                df_extractos.to_excel(writer, index=False, sheet_name="Solo en extractos")
+
+                df_contable = pd.DataFrame(resultado["solo_en_contable"])
+                df_contable = df_contable[["fecha", "monto", "descripcion"]] if not df_contable.empty else pd.DataFrame(
+                    columns=["fecha", "monto", "descripcion"]
+                )
+                df_contable.columns = ["Fecha", "Monto", "Descripción"]
+                df_contable.to_excel(writer, index=False, sheet_name="Solo en contable")
+            buffer.seek(0)
+            output_path.write_bytes(buffer.read())
+
+        resultado["excel_filename"] = filename
         return resultado
 
     except HTTPException:
@@ -104,6 +133,23 @@ async def conciliar_endpoint(
             status_code=500,
             detail=f"Error interno al comparar los archivos: {e}",
         )
+
+
+@app.get("/descargar/{filename}")
+async def descargar_excel(filename: str):
+    """
+    Descarga el archivo Excel de comparación generado.
+    """
+    if not filename.endswith(".xlsx") or ".." in filename or "/" in filename:
+        raise HTTPException(status_code=400, detail="Nombre de archivo no válido.")
+    path = config.OUTPUTS_DIR / filename
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="El archivo no existe o ya fue eliminado.")
+    return FileResponse(
+        path=str(path),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        filename=filename,
+    )
 
 
 @app.get("/health")

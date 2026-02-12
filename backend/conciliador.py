@@ -46,15 +46,15 @@ def _inferir_columnas(df: pd.DataFrame) -> ColumnConfig:
         )
 
     fecha = buscar([
-        "fecha", "fecha gasto", "fecha_contable", "f_gasto", "f_contable",
+        "fecha", "fecha extracto", "fecha gasto", "fecha_contable", "f_extracto", "f_gasto", "f_contable",
         "fecha ato", "fecha comp", "fecha valor",
     ])
     concepto = buscar([
-        "concepto", "descripcion", "detalle", "concepto gasto", "concepto contable",
+        "concepto", "descripcion", "detalle", "concepto extracto", "concepto gasto", "concepto contable",
         "nombre_cuenta",
     ])
     monto = buscar([
-        "monto", "importe", "valor", "monto gasto", "monto contable",
+        "monto", "importe", "valor", "monto extracto", "monto gasto", "monto contable",
         "neto", "importe_debe", "importe_haber",
     ])
 
@@ -66,13 +66,32 @@ def leer_excel_en_memoria(file_bytes: bytes) -> pd.DataFrame:
     Lee un archivo Excel desde bytes y devuelve un DataFrame de pandas.
 
     - Usa la primera hoja por defecto.
-    - Confía en pandas para detectar encabezados.
+    - Prueba la fila 0 como encabezado; si no encuentra las columnas requeridas,
+      prueba con la fila 1 (para Excels con título o fila extra arriba).
     """
     buffer = BytesIO(file_bytes)
-    df = pd.read_excel(buffer, engine="openpyxl")
-    if df.empty:
-        raise ValueError("El archivo Excel no contiene filas de datos.")
-    return df
+    ultimo_error: Exception | None = None
+
+    for header_row in (0, 1):
+        try:
+            buffer.seek(0)
+            df = pd.read_excel(buffer, engine="openpyxl", header=header_row)
+            if df.empty or len(df) == 0:
+                continue
+            # Validar que podemos inferir las columnas
+            _inferir_columnas(df)
+            return df
+        except ValueError as e:
+            ultimo_error = e
+            continue
+        except Exception:
+            buffer.seek(0)
+            raise
+
+    raise ValueError(
+        ultimo_error.args[0] if ultimo_error
+        else "El archivo Excel no contiene filas de datos."
+    )
 
 
 def _preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
@@ -107,7 +126,7 @@ def _preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
 
 
 def comparar_movimientos(
-    gastos_df: pd.DataFrame,
+    extractos_df: pd.DataFrame,
     contable_df: pd.DataFrame,
 ) -> Dict[str, Any]:
     """
@@ -116,44 +135,44 @@ def comparar_movimientos(
     Regla: fecha igual Y monto igual = OK (coinciden).
     Devuelve los movimientos que no encuentran contraparte en el otro archivo.
     """
-    gastos = _preparar_dataframe(gastos_df)
+    extractos = _preparar_dataframe(extractos_df)
     contable = _preparar_dataframe(contable_df)
 
-    gastos["id_gasto"] = gastos.index
+    extractos["id_extracto"] = extractos.index
     contable["id_contable"] = contable.index
 
     # Índices de filas que ya fueron emparejadas (match fecha + monto)
-    usados_gasto: set[int] = set()
+    usados_extracto: set[int] = set()
     usados_contable: set[int] = set()
 
     # Emparejamiento 1:1 por (fecha, monto)
-    for _, gasto_row in gastos.iterrows():
-        id_g = int(gasto_row["id_gasto"])
-        if id_g in usados_gasto:
+    for _, extracto_row in extractos.iterrows():
+        id_e = int(extracto_row["id_extracto"])
+        if id_e in usados_extracto:
             continue
 
         candidatos = contable[
             (~contable["id_contable"].isin(usados_contable))
-            & (contable["fecha_norm"] == gasto_row["fecha_norm"])
-            & (contable["monto_norm"] == gasto_row["monto_norm"])
+            & (contable["fecha_norm"] == extracto_row["fecha_norm"])
+            & (contable["monto_norm"] == extracto_row["monto_norm"])
         ]
 
         if not candidatos.empty:
             # Tomamos el primero disponible (cualquiera da igual, fecha y monto coinciden)
             id_c = int(candidatos.iloc[0]["id_contable"])
-            usados_gasto.add(id_g)
+            usados_extracto.add(id_e)
             usados_contable.add(id_c)
 
     # Movimientos que difieren: sin contraparte
-    solo_en_gastos: List[Dict[str, Any]] = []
+    solo_en_extractos: List[Dict[str, Any]] = []
     solo_en_contable: List[Dict[str, Any]] = []
 
-    for _, row in gastos.iterrows():
-        if int(row["id_gasto"]) in usados_gasto:
+    for _, row in extractos.iterrows():
+        if int(row["id_extracto"]) in usados_extracto:
             continue
         fecha_val = row["fecha_norm"]
         fecha_str = fecha_val.strftime("%Y-%m-%d") if fecha_val is not None else ""
-        solo_en_gastos.append(
+        solo_en_extractos.append(
             {
                 "fecha": fecha_str,
                 "monto": float(row["monto_norm"]) if row["monto_norm"] is not None else 0,
@@ -174,18 +193,18 @@ def comparar_movimientos(
             }
         )
 
-    total_gastos = len(gastos)
+    total_extractos = len(extractos)
     total_contable = len(contable)
-    coincidencias = len(usados_gasto)
+    coincidencias = len(usados_extracto)
 
     return {
-        "solo_en_gastos": solo_en_gastos,
+        "solo_en_extractos": solo_en_extractos,
         "solo_en_contable": solo_en_contable,
         "resumen": {
-            "total_gastos": total_gastos,
+            "total_extractos": total_extractos,
             "total_contable": total_contable,
             "coincidencias": coincidencias,
-            "diferentes_gastos": len(solo_en_gastos),
+            "diferentes_extractos": len(solo_en_extractos),
             "diferentes_contable": len(solo_en_contable),
         },
     }

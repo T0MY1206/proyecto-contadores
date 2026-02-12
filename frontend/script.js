@@ -10,10 +10,13 @@ const mensajesContainer = document.getElementById("mensajes");
 const conciliarBtn = document.getElementById("conciliar-btn");
 const resultadoContenedor = document.getElementById("resultado-contenedor");
 const resumenTexto = document.getElementById("resumen-texto");
-const listaGastos = document.getElementById("lista-gastos");
+const listaExtractos = document.getElementById("lista-extractos");
 const listaContable = document.getElementById("lista-contable");
-const soloGastosDiv = document.getElementById("solo-gastos");
+const soloExtractosDiv = document.getElementById("solo-extractos");
 const soloContableDiv = document.getElementById("solo-contable");
+const descargarExcelBtn = document.getElementById("descargar-excel-btn");
+
+let ultimoExcelFilename = null;
 
 function limpiarMensajes() {
   mensajesContainer.innerHTML = "";
@@ -57,19 +60,19 @@ function escapeHtml(texto) {
 }
 
 function mostrarResultado(data) {
-  const { solo_en_gastos, solo_en_contable, resumen } = data;
+  const { solo_en_extractos, solo_en_contable, resumen } = data;
 
   resumenTexto.textContent = `${resumen.coincidencias} coincidencias (fecha + monto iguales). ` +
-    `${resumen.diferentes_gastos} solo en gastos. ${resumen.diferentes_contable} solo en contable.`;
+    `${resumen.diferentes_extractos} solo en extractos. ${resumen.diferentes_contable} solo en contable.`;
 
-  listaGastos.innerHTML = "";
+  listaExtractos.innerHTML = "";
   listaContable.innerHTML = "";
 
-  if (solo_en_gastos.length > 0) {
-    soloGastosDiv.hidden = false;
-    solo_en_gastos.forEach((mov) => listaGastos.appendChild(renderizarMovimiento(mov)));
+  if (solo_en_extractos.length > 0) {
+    soloExtractosDiv.hidden = false;
+    solo_en_extractos.forEach((mov) => listaExtractos.appendChild(renderizarMovimiento(mov)));
   } else {
-    soloGastosDiv.hidden = true;
+    soloExtractosDiv.hidden = true;
   }
 
   if (solo_en_contable.length > 0) {
@@ -80,23 +83,47 @@ function mostrarResultado(data) {
   }
 
   resultadoContenedor.hidden = false;
+  ultimoExcelFilename = data.excel_filename || null;
+  descargarExcelBtn.style.display = ultimoExcelFilename ? "block" : "none";
 }
+
+async function descargarExcel() {
+  if (!ultimoExcelFilename) return;
+  try {
+    const response = await fetch(`${API_BASE_URL}/descargar/${ultimoExcelFilename}`);
+    if (!response.ok) throw new Error("No se pudo descargar el archivo");
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = ultimoExcelFilename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error(err);
+    agregarMensaje("Error al descargar el Excel.", "error");
+  }
+}
+
+descargarExcelBtn.addEventListener("click", descargarExcel);
 
 form.addEventListener("submit", async (event) => {
   event.preventDefault();
   limpiarMensajes();
   resultadoContenedor.hidden = true;
 
-  const gastosFileInput = document.getElementById("gastos_file");
+  const extractosFileInput = document.getElementById("extractos_file");
   const contableFileInput = document.getElementById("contable_file");
 
-  if (!gastosFileInput.files[0] || !contableFileInput.files[0]) {
+  if (!extractosFileInput.files[0] || !contableFileInput.files[0]) {
     agregarMensaje("Debe seleccionar ambos archivos antes de comparar.", "error");
     return;
   }
 
   const formData = new FormData();
-  formData.append("gastos_file", gastosFileInput.files[0]);
+  formData.append("extractos_file", extractosFileInput.files[0]);
   formData.append("contable_file", contableFileInput.files[0]);
 
   conciliarBtn.disabled = true;
@@ -123,7 +150,7 @@ form.addEventListener("submit", async (event) => {
 
     const data = await response.json();
     limpiarMensajes();
-    agregarMensaje("Comparación completada.", "success");
+    agregarMensaje("Comparación completada. Puede descargar el Excel con el resultado.", "success");
     mostrarResultado(data);
   } catch (error) {
     console.error(error);

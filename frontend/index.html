@@ -11,7 +11,7 @@
       <header>
         <h1>Conciliador Contable</h1>
         <p>
-          Sube el Excel de <strong>gastos</strong> y el Excel
+          Sube el Excel de <strong>extractos</strong> y el Excel
           <strong>contable</strong> para comparar y ver qué movimientos difieren.
         </p>
       </header>
@@ -19,8 +19,8 @@
       <main>
         <form id="conciliacion-form">
           <div class="field">
-            <label for="gastos_file">Archivo de gastos (.xlsx)</label>
-            <input type="file" id="gastos_file" name="gastos_file" accept=".xlsx" required />
+            <label for="extractos_file">Archivo de extractos (.xlsx)</label>
+            <input type="file" id="extractos_file" name="extractos_file" accept=".xlsx" required />
           </div>
 
           <div class="field">
@@ -37,15 +37,19 @@
           <h2>Movimientos que difieren</h2>
           <p id="resumen-texto" class="resumen-texto"></p>
 
-          <div id="solo-gastos" class="lista-movimientos">
-            <h3>Solo en archivo de gastos</h3>
-            <ul id="lista-gastos"></ul>
+          <div id="solo-extractos" class="lista-movimientos">
+            <h3>Solo en archivo de extractos</h3>
+            <ul id="lista-extractos"></ul>
           </div>
 
           <div id="solo-contable" class="lista-movimientos">
             <h3>Solo en archivo contable</h3>
             <ul id="lista-contable"></ul>
           </div>
+
+          <button id="descargar-excel-btn" class="secondary-btn" style="display: none;">
+            Descargar Excel
+          </button>
         </div>
       </main>
 

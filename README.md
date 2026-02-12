@@ -1,6 +1,6 @@
 ## Conciliador Contable (FastAPI + Pandas)
 
-Aplicación sencilla para realizar conciliaciones contables entre un Excel de **gastos** y un Excel **contable**, utilizando **Python 3.14**, **FastAPI** y **Pandas**.
+Aplicación sencilla para realizar conciliaciones contables entre un Excel de **extractos** y un Excel **contable**, utilizando **Python 3.14**, **FastAPI** y **Pandas**.
 
 La conciliación aplica reglas basadas en fechas, montos y similitud de conceptos, y genera un nuevo archivo Excel en la carpeta `outputs/`.
 
@@ -80,7 +80,7 @@ Opciones:
 
 La página mostrará:
 
-- Dos campos de carga de archivos (`gastos_file` y `contable_file`).
+- Dos campos de carga de archivos (`extractos_file` y `contable_file`).
 - Un botón **“Conciliar”**.
 - Una zona de mensajes de estado.
 - Un botón **“Descargar último resultado”** (se habilita tras la primera conciliación).
@@ -103,9 +103,9 @@ Cada archivo debe contener **al menos una hoja** con columnas que representen:
 
 Los nombres de columna pueden variar, pero la aplicación intenta detectarlos automáticamente buscando, en minúsculas, entre opciones habituales:
 
-- Para la fecha: `fecha`, `fecha gasto`, `fecha_contable`, `f_gasto`, `f_contable`.
-- Para el concepto: `concepto`, `descripcion`, `detalle`, `concepto gasto`, `concepto contable`.
-- Para el monto: `monto`, `importe`, `valor`, `monto gasto`, `monto contable`.
+- Para la fecha: `fecha`, `fecha extracto`, `fecha_contable`, `f_extracto`, `f_contable`.
+- Para el concepto: `concepto`, `descripcion`, `detalle`, `concepto extracto`, `concepto contable`.
+- Para el monto: `monto`, `importe`, `valor`, `monto extracto`, `monto contable`.
 
 Si no se encuentra alguna columna requerida, el backend devolverá un error JSON con un mensaje descriptivo.
 
@@ -140,24 +140,24 @@ La lógica principal está implementada en `backend/conciliador.py`.
 Se generan tres tipos de resultados:
 
 - **Conciliados**
-  - Fecha de gasto y fecha contable **idénticas**.
-  - Monto de gasto y monto contable **idénticos** (tras normalización).
+  - Fecha de extracto y fecha contable **idénticas**.
+  - Monto de extracto y monto contable **idénticos** (tras normalización).
   - Similitud de concepto **≥ 90%** (utilizando `rapidfuzz`).
 
 - **Posibles conciliaciones**
-  - Fecha contable dentro de un rango de **± 3 días** respecto a la fecha de gasto.
+  - Fecha contable dentro de un rango de **± 3 días** respecto a la fecha de extracto.
   - Monto igual (tras normalización).
   - Similitud de concepto entre **70% y 89.99%**.
 
 - **No conciliados**
-  - Registros de gastos que no cumplen ninguna de las condiciones anteriores.
-  - Registros contables que no se asignan a ningún gasto.
+  - Registros de extractos que no cumplen ninguna de las condiciones anteriores.
+  - Registros contables que no se asignan a ningún extracto.
 
 El DataFrame final contiene las columnas:
 
-- `Fecha gasto`
-- `Concepto gasto`
-- `Monto gasto`
+- `Fecha extracto`
+- `Concepto extracto`
+- `Monto extracto`
 - `Fecha contable`
 - `Concepto contable`
 - `Monto contable`
@@ -188,9 +188,9 @@ Si la carpeta `outputs/` no existe, se crea automáticamente al arrancar el back
 El backend devuelve errores en formato JSON claro, por ejemplo:
 
 - Falta uno de los archivos:
-  - `{"detail": "Debe enviar ambos archivos: gastos y contable."}`
+  - `{"detail": "Debe enviar ambos archivos: extractos y contable."}`
 - Archivo vacío:
-  - `{"detail": "El archivo de gastos está vacío."}`
+  - `{"detail": "El archivo de extractos está vacío."}`
   - `{"detail": "El archivo contable está vacío."}`
 - No se encuentra alguna columna requerida o el Excel está vacío:
   - Mensaje descriptivo indicando el problema de columnas o contenido.
