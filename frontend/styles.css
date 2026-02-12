@@ -9,33 +9,116 @@
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  background: #f5f7fb;
-  color: #1f2933;
+  background: var(--bg-page);
+  color: var(--texto);
+  transition: background 0.25s ease, color 0.25s ease;
+}
+
+/* --- Tema claro (por defecto) --- */
+:root {
+  --bg-page: #f5f7fb;
+  --bg-card: #ffffff;
+  --bg-input: #f9fafb;
+  --bg-lista: #f9fafb;
+  --texto: #1f2933;
+  --texto-titulo: #111827;
+  --texto-secundario: #4b5563;
+  --texto-muted: #6b7280;
+  --borde: #e5e7eb;
+  --borde-input: #d1d5db;
+  --sombra: 0 10px 30px rgba(0, 0, 0, 0.06);
+  --mensaje-info-bg: #eff6ff;
+  --mensaje-info-text: #1d4ed8;
+  --mensaje-info-borde: #bfdbfe;
+  --mensaje-error-bg: #fef2f2;
+  --mensaje-error-text: #b91c1c;
+  --mensaje-error-borde: #fecaca;
+  --mensaje-success-bg: #ecfdf5;
+  --mensaje-success-text: #15803d;
+  --mensaje-success-borde: #bbf7d0;
+  --btn-sec-bg: #f3f4f6;
+  --btn-sec-text: #374151;
+  --btn-sec-hover: #e5e7eb;
+  --code-bg: #f3f4f6;
+}
+
+/* --- Tema oscuro --- */
+body.dark-theme {
+  --bg-page: #0f172a;
+  --bg-card: #1e293b;
+  --bg-input: #334155;
+  --bg-lista: #1e293b;
+  --texto: #e2e8f0;
+  --texto-titulo: #f1f5f9;
+  --texto-secundario: #cbd5e1;
+  --texto-muted: #94a3b8;
+  --borde: #334155;
+  --borde-input: #475569;
+  --sombra: 0 10px 30px rgba(0, 0, 0, 0.4);
+  --mensaje-info-bg: #1e3a5f;
+  --mensaje-info-text: #93c5fd;
+  --mensaje-info-borde: #2563eb;
+  --mensaje-error-bg: #450a0a;
+  --mensaje-error-text: #fca5a5;
+  --mensaje-error-borde: #b91c1c;
+  --mensaje-success-bg: #052e16;
+  --mensaje-success-text: #86efac;
+  --mensaje-success-borde: #15803d;
+  --btn-sec-bg: #334155;
+  --btn-sec-text: #e2e8f0;
+  --btn-sec-hover: #475569;
+  --code-bg: #334155;
 }
 
 .app-container {
   max-width: 720px;
   margin: 3rem auto;
   padding: 2rem;
-  background: #ffffff;
+  background: var(--bg-card);
   border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.06);
+  box-shadow: var(--sombra);
+  transition: background 0.25s ease, box-shadow 0.25s ease;
 }
 
-header {
-  text-align: center;
+.header-contenedor {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
   margin-bottom: 2rem;
+  position: relative;
+}
+
+.header-titulo {
+  text-align: center;
+  flex: 1;
 }
 
 header h1 {
   margin: 0 0 0.5rem 0;
   font-size: 1.8rem;
-  color: #111827;
+  color: var(--texto-titulo);
 }
 
 header p {
   margin: 0;
-  color: #4b5563;
+  color: var(--texto-secundario);
+}
+
+.tema-btn {
+  flex-shrink: 0;
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
+  border: 1px solid var(--borde);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s ease, border-color 0.2s ease;
+}
+
+.tema-btn:hover {
+  background: var(--btn-sec-hover);
 }
 
 form {
@@ -53,14 +136,15 @@ form {
 
 label {
   font-weight: 600;
-  color: #111827;
+  color: var(--texto-titulo);
 }
 
 input[type="file"] {
   padding: 0.4rem;
   border-radius: 6px;
-  border: 1px solid #d1d5db;
-  background: #f9fafb;
+  border: 1px solid var(--borde-input);
+  background: var(--bg-input);
+  color: var(--texto);
 }
 
 button {
@@ -93,12 +177,12 @@ button:disabled {
 }
 
 .secondary-btn {
-  background: #f3f4f6;
-  color: #374151;
+  background: var(--btn-sec-bg);
+  color: var(--btn-sec-text);
 }
 
 .secondary-btn:hover:not(:disabled) {
-  background: #e5e7eb;
+  background: var(--btn-sec-hover);
 }
 
 .mensajes {
@@ -114,37 +198,37 @@ button:disabled {
 }
 
 .mensaje.info {
-  background: #eff6ff;
-  color: #1d4ed8;
-  border: 1px solid #bfdbfe;
+  background: var(--mensaje-info-bg);
+  color: var(--mensaje-info-text);
+  border: 1px solid var(--mensaje-info-borde);
 }
 
 .mensaje.error {
-  background: #fef2f2;
-  color: #b91c1c;
-  border: 1px solid #fecaca;
+  background: var(--mensaje-error-bg);
+  color: var(--mensaje-error-text);
+  border: 1px solid var(--mensaje-error-borde);
 }
 
 .mensaje.success {
-  background: #ecfdf5;
-  color: #15803d;
-  border: 1px solid #bbf7d0;
+  background: var(--mensaje-success-bg);
+  color: var(--mensaje-success-text);
+  border: 1px solid var(--mensaje-success-borde);
 }
 
 .resultado-contenedor {
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid #e5e7eb;
+  border-top: 1px solid var(--borde);
 }
 
 .resultado-contenedor h2 {
   margin: 0 0 0.5rem 0;
   font-size: 1.25rem;
-  color: #111827;
+  color: var(--texto-titulo);
 }
 
 .resumen-texto {
-  color: #6b7280;
+  color: var(--texto-muted);
   font-size: 0.9rem;
   margin-bottom: 1.5rem;
 }
@@ -155,15 +239,15 @@ button:disabled {
 
 .lista-colapsable {
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
-  background: #f9fafb;
+  border: 1px solid var(--borde);
+  background: var(--bg-lista);
   overflow: hidden;
 }
 
 .lista-colapsable-titulo {
   font-size: 1rem;
   font-weight: 600;
-  color: #374151;
+  color: var(--texto-secundario);
   padding: 0.75rem 1rem;
   cursor: pointer;
   list-style: none;
@@ -182,7 +266,7 @@ button:disabled {
   display: inline-block;
   width: 0;
   height: 0;
-  border-left: 5px solid #6b7280;
+  border-left: 5px solid var(--texto-muted);
   border-top: 4px solid transparent;
   border-bottom: 4px solid transparent;
   margin-right: 0.25rem;
@@ -197,9 +281,9 @@ button:disabled {
   list-style: none;
   margin: 0;
   padding: 0;
-  background: #f9fafb;
+  background: var(--bg-lista);
   border-radius: 8px;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--borde);
 }
 
 .movimiento-item {
@@ -207,7 +291,7 @@ button:disabled {
   grid-template-columns: 100px 120px 1fr;
   gap: 1rem;
   padding: 0.75rem 1rem;
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--borde);
   font-size: 0.9rem;
   align-items: center;
 }
@@ -217,17 +301,17 @@ button:disabled {
 }
 
 .mov-fecha {
-  color: #6b7280;
+  color: var(--texto-muted);
   font-variant-numeric: tabular-nums;
 }
 
 .mov-monto {
   font-weight: 600;
-  color: #111827;
+  color: var(--texto-titulo);
 }
 
 .mov-descripcion {
-  color: #374151;
+  color: var(--texto-secundario);
 }
 
 #solo-extractos .movimiento-item {
@@ -241,15 +325,16 @@ button:disabled {
 footer {
   margin-top: 2rem;
   text-align: center;
-  color: #6b7280;
+  color: var(--texto-muted);
   font-size: 0.8rem;
 }
 
 code {
-  background: #f3f4f6;
+  background: var(--code-bg);
   padding: 0.1rem 0.35rem;
   border-radius: 4px;
   font-size: 0.85em;
+  color: var(--texto);
 }
 
 @media (max-width: 768px) {

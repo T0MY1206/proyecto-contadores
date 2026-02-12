@@ -8,12 +8,17 @@
   </head>
   <body>
     <div class="app-container">
-      <header>
-        <h1>Conciliador Contable</h1>
-        <p>
+      <header class="header-contenedor">
+        <div class="header-titulo">
+          <h1>Conciliador Contable</h1>
+          <p>
           Sube el Excel de <strong>extractos</strong> y el Excel
           <strong>contable</strong> para comparar y ver qué movimientos difieren.
-        </p>
+          </p>
+        </div>
+        <button type="button" id="tema-btn" class="tema-btn" title="Cambiar tema" aria-label="Cambiar entre tema claro y oscuro">
+          <span id="tema-btn-texto">Tema oscuro</span>
+        </button>
       </header>
 
       <main>

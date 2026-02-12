@@ -21,6 +21,41 @@ const listaContable = document.getElementById("lista-contable");
 const soloExtractosDiv = document.getElementById("solo-extractos");
 const soloContableDiv = document.getElementById("solo-contable");
 const descargarExcelBtn = document.getElementById("descargar-excel-btn");
+const temaBtn = document.getElementById("tema-btn");
+const temaBtnTexto = document.getElementById("tema-btn-texto");
+
+const TEMA_KEY = "conciliador-tema";
+
+function esTemaOscuro() {
+  return document.body.classList.contains("dark-theme");
+}
+
+function aplicarTema(oscuro) {
+  if (oscuro) {
+    document.body.classList.add("dark-theme");
+    temaBtnTexto.textContent = "Tema claro";
+  } else {
+    document.body.classList.remove("dark-theme");
+    temaBtnTexto.textContent = "Tema oscuro";
+  }
+  try {
+    localStorage.setItem(TEMA_KEY, oscuro ? "dark" : "light");
+  } catch (_) {}
+}
+
+function initTema() {
+  let preferido = "light";
+  try {
+    const guardado = localStorage.getItem(TEMA_KEY);
+    if (guardado === "dark" || guardado === "light") preferido = guardado;
+  } catch (_) {}
+  aplicarTema(preferido === "dark");
+}
+
+if (temaBtn && temaBtnTexto) {
+  initTema();
+  temaBtn.addEventListener("click", () => aplicarTema(!esTemaOscuro()));
+}
 
 let ultimoExcelFilename = null;
 
