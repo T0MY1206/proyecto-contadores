@@ -38,13 +38,17 @@
           <p id="resumen-texto" class="resumen-texto"></p>
 
           <div id="solo-extractos" class="lista-movimientos">
-            <h3>Solo en archivo de extractos</h3>
-            <ul id="lista-extractos"></ul>
+            <details class="lista-colapsable" id="details-extractos">
+              <summary class="lista-colapsable-titulo" id="summary-extractos">Solo en archivo de extractos</summary>
+              <ul id="lista-extractos"></ul>
+            </details>
           </div>
 
           <div id="solo-contable" class="lista-movimientos">
-            <h3>Solo en archivo contable</h3>
-            <ul id="lista-contable"></ul>
+            <details class="lista-colapsable" id="details-contable">
+              <summary class="lista-colapsable-titulo" id="summary-contable">Solo en archivo contable</summary>
+              <ul id="lista-contable"></ul>
+            </details>
           </div>
 
           <button id="descargar-excel-btn" class="secondary-btn" style="display: none;">

@@ -3,7 +3,13 @@
 // - Envía una petición POST /conciliar con multipart/form-data.
 // - Muestra los movimientos que difieren entre ambos Excels.
 
-const API_BASE_URL = "http://localhost:8000";
+// En Render (mismo origen) usa la misma URL; en local con archivo abierto usa localhost:8000.
+const API_BASE_URL =
+  typeof window !== "undefined" &&
+  window.location.protocol !== "file:" &&
+  window.location.origin !== "null"
+    ? window.location.origin
+    : "http://localhost:8000";
 
 const form = document.getElementById("conciliacion-form");
 const mensajesContainer = document.getElementById("mensajes");
@@ -68,8 +74,12 @@ function mostrarResultado(data) {
   listaExtractos.innerHTML = "";
   listaContable.innerHTML = "";
 
+  const summaryExtractos = document.getElementById("summary-extractos");
+  const summaryContable = document.getElementById("summary-contable");
+
   if (solo_en_extractos.length > 0) {
     soloExtractosDiv.hidden = false;
+    summaryExtractos.textContent = `Solo en archivo de extractos (${solo_en_extractos.length})`;
     solo_en_extractos.forEach((mov) => listaExtractos.appendChild(renderizarMovimiento(mov)));
   } else {
     soloExtractosDiv.hidden = true;
@@ -77,6 +87,7 @@ function mostrarResultado(data) {
 
   if (solo_en_contable.length > 0) {
     soloContableDiv.hidden = false;
+    summaryContable.textContent = `Solo en archivo contable (${solo_en_contable.length})`;
     solo_en_contable.forEach((mov) => listaContable.appendChild(renderizarMovimiento(mov)));
   } else {
     soloContableDiv.hidden = true;

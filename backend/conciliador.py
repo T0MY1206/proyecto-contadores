@@ -1,8 +1,7 @@
 """
 Lógica principal de conciliación contable entre dos archivos de Excel.
 
-Este módulo utiliza pandas para leer los datos y aplicar reglas de
-comparación basadas en fechas y montos.
+Lee Excel con openpyxl y compara por fecha y monto (sin pandas).
 """
 
 from __future__ import annotations
@@ -11,31 +10,21 @@ from dataclasses import dataclass
 from io import BytesIO
 from typing import Any, Dict, List
 
-import pandas as pd
+from openpyxl import load_workbook
 
 from .normalizador import normalizar_concepto, normalizar_fecha, normalizar_monto
 
 
 @dataclass
 class ColumnConfig:
-    """
-    Configuración esperada de columnas en los archivos de entrada.
-
-    Permitimos cierta flexibilidad en los nombres de columna buscando
-    equivalentes comunes en minúsculas.
-    """
-
     fecha: str
     concepto: str
     monto: str
 
 
-def _inferir_columnas(df: pd.DataFrame) -> ColumnConfig:
-    """
-    Intenta inferir los nombres de las columnas principales (fecha, concepto, monto)
-    a partir de los nombres presentes en el DataFrame.
-    """
-    cols_lower = {c.lower(): c for c in df.columns}
+def _inferir_columnas(columnas: List[str]) -> ColumnConfig:
+    cols_lower = {c.strip().lower() if c else "": c for c in columnas if c is not None}
+    cols_lower = {k: v for k, v in cols_lower.items() if k}
 
     def buscar(posibles: List[str]) -> str:
         for candidato in posibles:
@@ -57,17 +46,13 @@ def _inferir_columnas(df: pd.DataFrame) -> ColumnConfig:
         "monto", "importe", "valor", "monto extracto", "monto gasto", "monto contable",
         "neto", "importe_debe", "importe_haber",
     ])
-
     return ColumnConfig(fecha=fecha, concepto=concepto, monto=monto)
 
 
-def leer_excel_en_memoria(file_bytes: bytes) -> pd.DataFrame:
+def leer_excel_en_memoria(file_bytes: bytes) -> List[Dict[str, Any]]:
     """
-    Lee un archivo Excel desde bytes y devuelve un DataFrame de pandas.
-
-    - Usa la primera hoja por defecto.
-    - Prueba la fila 0 como encabezado; si no encuentra las columnas requeridas,
-      prueba con la fila 1 (para Excels con título o fila extra arriba).
+    Lee un archivo Excel desde bytes y devuelve una lista de diccionarios (una fila por dict).
+    Usa la primera hoja. Prueba fila 0 o 1 como encabezado.
     """
     buffer = BytesIO(file_bytes)
     ultimo_error: Exception | None = None
@@ -75,12 +60,26 @@ def leer_excel_en_memoria(file_bytes: bytes) -> pd.DataFrame:
     for header_row in (0, 1):
         try:
             buffer.seek(0)
-            df = pd.read_excel(buffer, engine="openpyxl", header=header_row)
-            if df.empty or len(df) == 0:
+            wb = load_workbook(buffer, read_only=False, data_only=True)
+            ws = wb.active
+            rows = list(ws.iter_rows(values_only=True))
+            wb.close()
+
+            if not rows or len(rows) <= header_row:
                 continue
-            # Validar que podemos inferir las columnas
-            _inferir_columnas(df)
-            return df
+
+            headers = [str(c).strip() if c is not None else "" for c in rows[header_row]]
+            config = _inferir_columnas(headers)
+
+            data_rows = rows[header_row + 1:]
+            out = []
+            for row in data_rows:
+                if not any(v is not None and str(v).strip() for v in row):
+                    continue
+                fila = dict(zip(headers, row)) if row else {}
+                out.append(fila)
+            if out:
+                return out
         except ValueError as e:
             ultimo_error = e
             continue
@@ -89,121 +88,101 @@ def leer_excel_en_memoria(file_bytes: bytes) -> pd.DataFrame:
             raise
 
     raise ValueError(
-        ultimo_error.args[0] if ultimo_error
-        else "El archivo Excel no contiene filas de datos."
+        ultimo_error.args[0] if ultimo_error else "El archivo Excel no contiene filas de datos."
     )
 
 
-def _preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Aplica normalizaciones de fecha, concepto y monto sobre un DataFrame genérico.
-    """
-    config = _inferir_columnas(df)
+def _preparar_filas(filas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    """Aplica normalizaciones y filtra filas inválidas."""
+    if not filas:
+        return []
+    headers = list(filas[0].keys())
+    config = _inferir_columnas(headers)
 
-    df = df.copy()
-    df.rename(
-        columns={
-            config.fecha: "fecha",
-            config.concepto: "concepto",
-            config.monto: "monto",
-        },
-        inplace=True,
-    )
+    resultado = []
+    for idx, fila in enumerate(filas):
+        fecha_val = fila.get(config.fecha)
+        concepto_val = fila.get(config.concepto)
+        monto_val = fila.get(config.monto)
 
-    # Normalización de columnas clave
-    df["fecha_norm"] = df["fecha"].apply(normalizar_fecha)
-    df["concepto_norm"] = df["concepto"].apply(normalizar_concepto)
-    df["monto_norm"] = df["monto"].apply(normalizar_monto)
+        fecha_norm = normalizar_fecha(fecha_val)
+        concepto_norm = normalizar_concepto(concepto_val)
+        monto_norm = normalizar_monto(monto_val)
 
-    # Filtramos filas que no tengan datos mínimos válidos
-    df = df[
-        df["fecha_norm"].notna()
-        & df["concepto_norm"].astype(str).str.len().gt(0)
-        & df["monto_norm"].notna()
-    ].reset_index(drop=True)
+        if fecha_norm is None or monto_norm is None:
+            continue
+        if not (concepto_norm or concepto_norm.strip()):
+            continue
 
-    return df
+        resultado.append({
+            "id": idx,
+            "fecha": fecha_val,
+            "concepto": concepto_val,
+            "monto": monto_val,
+            "fecha_norm": fecha_norm,
+            "concepto_norm": concepto_norm,
+            "monto_norm": monto_norm,
+        })
+    return resultado
 
 
 def comparar_movimientos(
-    extractos_df: pd.DataFrame,
-    contable_df: pd.DataFrame,
+    extractos_filas: List[Dict[str, Any]],
+    contable_filas: List[Dict[str, Any]],
 ) -> Dict[str, Any]:
     """
-    Compara los movimientos de dos DataFrames por fecha y monto.
-
-    Regla: fecha igual Y monto igual = OK (coinciden).
-    Devuelve los movimientos que no encuentran contraparte en el otro archivo.
+    Compara movimientos por fecha y monto. Devuelve los que no tienen contraparte.
     """
-    extractos = _preparar_dataframe(extractos_df)
-    contable = _preparar_dataframe(contable_df)
+    extractos = _preparar_filas(extractos_filas)
+    contable = _preparar_filas(contable_filas)
 
-    extractos["id_extracto"] = extractos.index
-    contable["id_contable"] = contable.index
-
-    # Índices de filas que ya fueron emparejadas (match fecha + monto)
     usados_extracto: set[int] = set()
     usados_contable: set[int] = set()
 
-    # Emparejamiento 1:1 por (fecha, monto)
-    for _, extracto_row in extractos.iterrows():
-        id_e = int(extracto_row["id_extracto"])
+    for ext in extractos:
+        id_e = ext["id"]
         if id_e in usados_extracto:
             continue
+        for cont in contable:
+            if cont["id"] in usados_contable:
+                continue
+            if ext["fecha_norm"] == cont["fecha_norm"] and ext["monto_norm"] == cont["monto_norm"]:
+                usados_extracto.add(id_e)
+                usados_contable.add(cont["id"])
+                break
 
-        candidatos = contable[
-            (~contable["id_contable"].isin(usados_contable))
-            & (contable["fecha_norm"] == extracto_row["fecha_norm"])
-            & (contable["monto_norm"] == extracto_row["monto_norm"])
-        ]
-
-        if not candidatos.empty:
-            # Tomamos el primero disponible (cualquiera da igual, fecha y monto coinciden)
-            id_c = int(candidatos.iloc[0]["id_contable"])
-            usados_extracto.add(id_e)
-            usados_contable.add(id_c)
-
-    # Movimientos que difieren: sin contraparte
     solo_en_extractos: List[Dict[str, Any]] = []
     solo_en_contable: List[Dict[str, Any]] = []
 
-    for _, row in extractos.iterrows():
-        if int(row["id_extracto"]) in usados_extracto:
+    for row in extractos:
+        if row["id"] in usados_extracto:
             continue
-        fecha_val = row["fecha_norm"]
-        fecha_str = fecha_val.strftime("%Y-%m-%d") if fecha_val is not None else ""
-        solo_en_extractos.append(
-            {
-                "fecha": fecha_str,
-                "monto": float(row["monto_norm"]) if row["monto_norm"] is not None else 0,
-                "descripcion": str(row["concepto"]) if row["concepto"] else "",
-            }
-        )
+        fn = row["fecha_norm"]
+        fecha_str = fn.strftime("%Y-%m-%d") if fn else ""
+        solo_en_extractos.append({
+            "fecha": fecha_str,
+            "monto": float(row["monto_norm"]),
+            "descripcion": str(row["concepto"]) if row["concepto"] else "",
+        })
 
-    for _, row in contable.iterrows():
-        if int(row["id_contable"]) in usados_contable:
+    for row in contable:
+        if row["id"] in usados_contable:
             continue
-        fecha_val = row["fecha_norm"]
-        fecha_str = fecha_val.strftime("%Y-%m-%d") if fecha_val is not None else ""
-        solo_en_contable.append(
-            {
-                "fecha": fecha_str,
-                "monto": float(row["monto_norm"]) if row["monto_norm"] is not None else 0,
-                "descripcion": str(row["concepto"]) if row["concepto"] else "",
-            }
-        )
-
-    total_extractos = len(extractos)
-    total_contable = len(contable)
-    coincidencias = len(usados_extracto)
+        fn = row["fecha_norm"]
+        fecha_str = fn.strftime("%Y-%m-%d") if fn else ""
+        solo_en_contable.append({
+            "fecha": fecha_str,
+            "monto": float(row["monto_norm"]),
+            "descripcion": str(row["concepto"]) if row["concepto"] else "",
+        })
 
     return {
         "solo_en_extractos": solo_en_extractos,
         "solo_en_contable": solo_en_contable,
         "resumen": {
-            "total_extractos": total_extractos,
-            "total_contable": total_contable,
-            "coincidencias": coincidencias,
+            "total_extractos": len(extractos),
+            "total_contable": len(contable),
+            "coincidencias": len(usados_extracto),
             "diferentes_extractos": len(solo_en_extractos),
             "diferentes_contable": len(solo_en_contable),
         },

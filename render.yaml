@@ -1,0 +1,14 @@
+# Render Blueprint: un solo servicio que sirve API + frontend.
+# Conectar el repo de GitHub en Render y usar este archivo para crear el servicio.
+
+services:
+  - type: web
+    name: conciliador-contable
+    runtime: python
+
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
+
+    # Carpeta de salida de Excels (efímera en plan free; se pierde al dormir el servicio).
+    # La descarga inmediata tras conciliar sí funciona.
+    envVars: []
