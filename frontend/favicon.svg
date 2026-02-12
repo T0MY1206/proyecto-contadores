@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <g fill="none" stroke="#1e40af" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+    <!-- Base -->
+    <path d="M12 28h8M16 26v4" />
+    <!-- Post -->
+    <path d="M16 8v20" />
+    <!-- Beam -->
+    <path d="M6 8h20" />
+    <!-- Left pan (circle) -->
+    <circle cx="6" cy="14" r="4" />
+    <!-- Right pan (circle) -->
+    <circle cx="26" cy="14" r="4" />
+    <!-- Lines from beam to pans -->
+    <path d="M6 8v2M26 8v2" />
+  </g>
+</svg>
