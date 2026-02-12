@@ -472,10 +472,188 @@ code {
   color: var(--texto);
 }
 
+/* --- Tablets y pantallas medianas --- */
 @media (max-width: 768px) {
   .app-container {
     margin: 1.5rem;
     padding: 1.5rem;
+  }
+
+  header h1 {
+    font-size: 1.5rem;
+  }
+
+  .movimiento-item {
+    grid-template-columns: 80px 90px minmax(0, 1fr);
+    gap: 0.6rem;
+    font-size: 0.85rem;
+    padding: 0.6rem 0.75rem;
+  }
+}
+
+/* --- Móviles --- */
+@media (max-width: 640px) {
+  body {
+    -webkit-text-size-adjust: 100%;
+  }
+
+  .app-container {
+    margin: 0.75rem;
+    padding: 1rem;
+    border-radius: 10px;
+    min-width: 0;
+  }
+
+  .header-contenedor {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+  }
+
+  .header-titulo {
+    text-align: center;
+    order: 0;
+  }
+
+  .tema-switch {
+    order: 1;
+    align-self: flex-end;
+  }
+
+  header h1 {
+    font-size: 1.35rem;
+    line-height: 1.25;
+  }
+
+  header p {
+    font-size: 0.9rem;
+    line-height: 1.4;
+  }
+
+  form {
+    gap: 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+
+  .upload-zone {
+    min-height: 88px;
+    padding: 1rem 1rem;
+  }
+
+  .upload-text {
+    font-size: 0.85rem;
+    padding: 0 0.25rem;
+  }
+
+  .upload-filename {
+    font-size: 0.8rem;
+  }
+
+  button {
+    min-height: 44px;
+    padding: 0.75rem 1.25rem;
+    font-size: 0.9rem;
+  }
+
+  #conciliar-btn {
+    align-self: stretch;
+    width: 100%;
+  }
+
+  .resultado-contenedor {
+    margin-top: 1.5rem;
+    padding-top: 1.25rem;
+  }
+
+  .resultado-contenedor h2 {
+    font-size: 1.1rem;
+  }
+
+  .resumen-texto {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+
+  .lista-colapsable-titulo {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.9rem;
+  }
+
+  /* En móvil cada movimiento en 2 filas: fecha+monto arriba, descripción abajo */
+  .movimiento-item {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: auto auto;
+    gap: 0.35rem 0.75rem;
+    padding: 0.65rem 0.75rem;
+    font-size: 0.8rem;
+  }
+
+  .mov-fecha {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .mov-monto {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .mov-descripcion {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    word-break: break-word;
+    white-space: normal;
+    line-height: 1.35;
+  }
+
+  #descargar-excel-btn {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  .mensaje {
+    padding: 0.65rem 0.75rem;
+    font-size: 0.85rem;
+  }
+
+  footer {
+    margin-top: 1.5rem;
+    font-size: 0.75rem;
+    padding: 0 0.5rem;
+  }
+}
+
+/* --- Móviles muy pequeños --- */
+@media (max-width: 380px) {
+  .app-container {
+    margin: 0.5rem;
+    padding: 0.75rem;
+  }
+
+  header h1 {
+    font-size: 1.2rem;
+  }
+
+  .tema-switch-track {
+    width: 64px;
+    height: 32px;
+    padding: 0 4px;
+  }
+
+  .tema-switch-thumb {
+    width: 24px;
+    height: 24px;
+  }
+
+  body.dark-theme .tema-switch-thumb {
+    left: calc(100% - 28px);
+  }
+
+  .upload-zone {
+    min-height: 80px;
+    padding: 0.85rem;
   }
 }
 
