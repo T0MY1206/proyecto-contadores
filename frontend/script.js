@@ -22,7 +22,6 @@ const soloExtractosDiv = document.getElementById("solo-extractos");
 const soloContableDiv = document.getElementById("solo-contable");
 const descargarExcelBtn = document.getElementById("descargar-excel-btn");
 const temaBtn = document.getElementById("tema-btn");
-const temaBtnTexto = document.getElementById("tema-btn-texto");
 
 const TEMA_KEY = "conciliador-tema";
 
@@ -33,10 +32,10 @@ function esTemaOscuro() {
 function aplicarTema(oscuro) {
   if (oscuro) {
     document.body.classList.add("dark-theme");
-    temaBtnTexto.textContent = "Tema claro";
+    if (temaBtn) temaBtn.setAttribute("aria-checked", "true");
   } else {
     document.body.classList.remove("dark-theme");
-    temaBtnTexto.textContent = "Tema oscuro";
+    if (temaBtn) temaBtn.setAttribute("aria-checked", "false");
   }
   try {
     localStorage.setItem(TEMA_KEY, oscuro ? "dark" : "light");
@@ -52,7 +51,7 @@ function initTema() {
   aplicarTema(preferido === "dark");
 }
 
-if (temaBtn && temaBtnTexto) {
+if (temaBtn) {
   initTema();
   temaBtn.addEventListener("click", () => aplicarTema(!esTemaOscuro()));
 }

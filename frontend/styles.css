@@ -105,20 +105,76 @@ header p {
   color: var(--texto-secundario);
 }
 
-.tema-btn {
+.tema-switch {
   flex-shrink: 0;
-  padding: 0.5rem 0.9rem;
-  font-size: 0.85rem;
-  background: var(--btn-sec-bg);
-  color: var(--btn-sec-text);
-  border: 1px solid var(--borde);
-  border-radius: 8px;
+  padding: 0;
+  border: none;
+  background: transparent;
   cursor: pointer;
-  transition: background 0.2s ease, border-color 0.2s ease;
+  border-radius: 999px;
+  line-height: 0;
 }
 
-.tema-btn:hover {
+.tema-switch:focus-visible {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
+.tema-switch-track {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 72px;
+  height: 36px;
+  padding: 0 6px;
+  background: var(--btn-sec-bg);
+  border: 1px solid var(--borde);
+  border-radius: 999px;
+  position: relative;
+  transition: background 0.2s ease, border-color 0.2s ease;
+  box-sizing: border-box;
+}
+
+.tema-switch:hover .tema-switch-track {
   background: var(--btn-sec-hover);
+}
+
+.tema-switch-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  position: relative;
+  z-index: 1;
+  transition: opacity 0.2s ease;
+}
+
+.tema-switch-sol {
+  color: #c4beb4;
+}
+
+.tema-switch-luna {
+  color: #a1a1aa;
+}
+
+.tema-switch-thumb {
+  position: absolute;
+  left: 4px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 26px;
+  height: 26px;
+  background: var(--bg-card);
+  border: 1px solid var(--borde);
+  border-radius: 50%;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform 0.25s ease, left 0.25s ease;
+  pointer-events: none;
+}
+
+body.dark-theme .tema-switch-thumb {
+  left: calc(100% - 30px);
 }
 
 form {
