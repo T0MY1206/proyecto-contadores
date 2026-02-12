@@ -24,13 +24,23 @@
       <main>
         <form id="conciliacion-form">
           <div class="field">
-            <label for="extractos_file">Archivo de extractos (.xlsx)</label>
-            <input type="file" id="extractos_file" name="extractos_file" accept=".xlsx" required />
+            <span class="field-label">Archivo de extractos (.xlsx)</span>
+            <label for="extractos_file" class="upload-zone" id="upload-zone-extractos">
+              <input type="file" id="extractos_file" name="extractos_file" accept=".xlsx" required class="upload-input" />
+              <span class="upload-icon" aria-hidden="true">📄</span>
+              <span class="upload-text">Arrastrá un archivo .xlsx o hacé clic para elegir</span>
+              <span class="upload-filename" id="filename-extractos"></span>
+            </label>
           </div>
 
           <div class="field">
-            <label for="contable_file">Archivo contable (.xlsx)</label>
-            <input type="file" id="contable_file" name="contable_file" accept=".xlsx" required />
+            <span class="field-label">Archivo contable (.xlsx)</span>
+            <label for="contable_file" class="upload-zone" id="upload-zone-contable">
+              <input type="file" id="contable_file" name="contable_file" accept=".xlsx" required class="upload-input" />
+              <span class="upload-icon" aria-hidden="true">📄</span>
+              <span class="upload-text">Arrastrá un archivo .xlsx o hacé clic para elegir</span>
+              <span class="upload-filename" id="filename-contable"></span>
+            </label>
           </div>
 
           <button type="submit" id="conciliar-btn">Comparar</button>

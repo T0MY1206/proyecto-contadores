@@ -57,6 +57,53 @@ if (temaBtn && temaBtnTexto) {
   temaBtn.addEventListener("click", () => aplicarTema(!esTemaOscuro()));
 }
 
+function actualizarUploadZone(input, zoneId, filenameId) {
+  const zone = document.getElementById(zoneId);
+  const filenameSpan = document.getElementById(filenameId);
+  if (!zone || !filenameSpan) return;
+  const file = input.files && input.files[0];
+  if (file) {
+    zone.classList.add("has-file");
+    filenameSpan.textContent = file.name;
+  } else {
+    zone.classList.remove("has-file");
+    filenameSpan.textContent = "";
+  }
+}
+
+function setupUploadZone(inputId, zoneId, filenameId) {
+  const input = document.getElementById(inputId);
+  const zone = document.getElementById(zoneId);
+  if (!input || !zone) return;
+  input.addEventListener("change", () => actualizarUploadZone(input, zoneId, filenameId));
+  ["dragenter", "dragover"].forEach((ev) => {
+    zone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.add("drag-over");
+    });
+  });
+  ["dragleave", "drop"].forEach((ev) => {
+    zone.addEventListener(ev, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      zone.classList.remove("drag-over");
+    });
+  });
+  zone.addEventListener("drop", (e) => {
+    const file = e.dataTransfer.files && e.dataTransfer.files[0];
+    if (file && file.name.toLowerCase().endsWith(".xlsx")) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      input.files = dt.files;
+      actualizarUploadZone(input, zoneId, filenameId);
+    }
+  });
+}
+
+setupUploadZone("extractos_file", "upload-zone-extractos", "filename-extractos");
+setupUploadZone("contable_file", "upload-zone-contable", "filename-contable");
+
 let ultimoExcelFilename = null;
 
 function limpiarMensajes() {
