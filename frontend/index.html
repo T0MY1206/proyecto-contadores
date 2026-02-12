@@ -12,7 +12,7 @@
         <h1>Conciliador Contable</h1>
         <p>
           Sube el Excel de <strong>gastos</strong> y el Excel
-          <strong>contable</strong> para generar un archivo conciliado.
+          <strong>contable</strong> para comparar y ver qué movimientos difieren.
         </p>
       </header>
 
@@ -28,25 +28,36 @@
             <input type="file" id="contable_file" name="contable_file" accept=".xlsx" required />
           </div>
 
-          <button type="submit" id="conciliar-btn">Conciliar</button>
+          <button type="submit" id="conciliar-btn">Comparar</button>
         </form>
 
         <div id="mensajes" class="mensajes"></div>
 
-        <button id="descargar-btn" class="secondary-btn" disabled>
-          Descargar último resultado
-        </button>
+        <div id="resultado-contenedor" class="resultado-contenedor" hidden>
+          <h2>Movimientos que difieren</h2>
+          <p id="resumen-texto" class="resumen-texto"></p>
+
+          <div id="solo-gastos" class="lista-movimientos">
+            <h3>Solo en archivo de gastos</h3>
+            <ul id="lista-gastos"></ul>
+          </div>
+
+          <div id="solo-contable" class="lista-movimientos">
+            <h3>Solo en archivo contable</h3>
+            <ul id="lista-contable"></ul>
+          </div>
+        </div>
       </main>
 
       <footer>
         <small>
-          Backend en FastAPI &middot; Los archivos se procesan localmente y el
-          resultado se guarda en la carpeta <code>outputs/</code>.
+          Backend en FastAPI &middot; Se comparan por fecha y monto: iguales =
+          OK.
         </small>
       </footer>
     </div>
 
     <script src="script.js"></script>
   </body>
-  </html>
+</html>
 

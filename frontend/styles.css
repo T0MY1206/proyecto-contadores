@@ -131,6 +131,80 @@ button:disabled {
   border: 1px solid #bbf7d0;
 }
 
+.resultado-contenedor {
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.resultado-contenedor h2 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.25rem;
+  color: #111827;
+}
+
+.resumen-texto {
+  color: #6b7280;
+  font-size: 0.9rem;
+  margin-bottom: 1.5rem;
+}
+
+.lista-movimientos {
+  margin-bottom: 1.5rem;
+}
+
+.lista-movimientos h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1rem;
+  color: #374151;
+  font-weight: 600;
+}
+
+.lista-movimientos ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  background: #f9fafb;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
+}
+
+.movimiento-item {
+  display: grid;
+  grid-template-columns: 100px 120px 1fr;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  font-size: 0.9rem;
+  align-items: center;
+}
+
+.movimiento-item:last-child {
+  border-bottom: none;
+}
+
+.mov-fecha {
+  color: #6b7280;
+  font-variant-numeric: tabular-nums;
+}
+
+.mov-monto {
+  font-weight: 600;
+  color: #111827;
+}
+
+.mov-descripcion {
+  color: #374151;
+}
+
+#solo-gastos .movimiento-item {
+  border-left: 3px solid #f59e0b;
+}
+
+#solo-contable .movimiento-item {
+  border-left: 3px solid #6366f1;
+}
+
 footer {
   margin-top: 2rem;
   text-align: center;

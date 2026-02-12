@@ -2,18 +2,16 @@
 Lógica principal de conciliación contable entre dos archivos de Excel.
 
 Este módulo utiliza pandas para leer los datos y aplicar reglas de
-conciliación basadas en fechas, montos y similitud de conceptos.
+comparación basadas en fechas y montos.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import timedelta
 from io import BytesIO
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List
 
 import pandas as pd
-from rapidfuzz import fuzz
 
 from .normalizador import normalizar_concepto, normalizar_fecha, normalizar_monto
 
@@ -47,11 +45,18 @@ def _inferir_columnas(df: pd.DataFrame) -> ColumnConfig:
             f"No se encontró ninguna de las columnas requeridas: {', '.join(posibles)}"
         )
 
-    fecha = buscar(["fecha", "fecha gasto", "fecha_contable", "f_gasto", "f_contable"])
-    concepto = buscar(
-        ["concepto", "descripcion", "detalle", "concepto gasto", "concepto contable"]
-    )
-    monto = buscar(["monto", "importe", "valor", "monto gasto", "monto contable"])
+    fecha = buscar([
+        "fecha", "fecha gasto", "fecha_contable", "f_gasto", "f_contable",
+        "fecha ato", "fecha comp", "fecha valor",
+    ])
+    concepto = buscar([
+        "concepto", "descripcion", "detalle", "concepto gasto", "concepto contable",
+        "nombre_cuenta",
+    ])
+    monto = buscar([
+        "monto", "importe", "valor", "monto gasto", "monto contable",
+        "neto", "importe_debe", "importe_haber",
+    ])
 
     return ColumnConfig(fecha=fecha, concepto=concepto, monto=monto)
 
@@ -101,206 +106,86 @@ def _preparar_dataframe(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def _calcular_similitud_concepto(a: str, b: str) -> float:
-    """
-    Calcula la similitud entre dos conceptos usando la métrica de RapidFuzz.
-
-    Devuelve un porcentaje entre 0 y 100.
-    """
-    if not a or not b:
-        return 0.0
-    return float(fuzz.token_sort_ratio(a, b))
-
-
-def conciliar(
+def comparar_movimientos(
     gastos_df: pd.DataFrame,
     contable_df: pd.DataFrame,
-    ventana_dias_posible: int = 3,
-    umbral_conciliado: float = 90.0,
-    umbral_posible_min: float = 70.0,
-    umbral_posible_max: float = 89.99,
-) -> pd.DataFrame:
+) -> Dict[str, Any]:
     """
-    Realiza la conciliación entre dos DataFrames ya leídos.
+    Compara los movimientos de dos DataFrames por fecha y monto.
 
-    Reglas:
-    - Conciliados: fecha idéntica, monto idéntico, concepto similitud ≥ umbral_conciliado.
-    - Posibles: fecha ± ventana_dias_posible, monto igual, similitud concepto entre
-      [umbral_posible_min, umbral_posible_max].
-    - No conciliados: el resto de registros de gastos y contable.
+    Regla: fecha igual Y monto igual = OK (coinciden).
+    Devuelve los movimientos que no encuentran contraparte en el otro archivo.
     """
     gastos = _preparar_dataframe(gastos_df)
     contable = _preparar_dataframe(contable_df)
 
-    # Añadimos índices auxiliares para poder identificar filas únicas
     gastos["id_gasto"] = gastos.index
     contable["id_contable"] = contable.index
 
-    # Listas para ir guardando resultados intermedios
-    resultados: List[Dict[str, Any]] = []
-
-    # Creamos estructura para marcar contables ya usados
+    # Índices de filas que ya fueron emparejadas (match fecha + monto)
+    usados_gasto: set[int] = set()
     usados_contable: set[int] = set()
 
-    def registrar_match(
-        id_gasto: int,
-        id_contable: Optional[int],
-        estado: str,
-        observacion: str,
-    ) -> None:
-        """Registra una fila en la salida unificada."""
-        gasto_row = gastos.loc[gastos["id_gasto"] == id_gasto].iloc[0]
-
-        if id_contable is not None:
-            cont_row = contable.loc[contable["id_contable"] == id_contable].iloc[0]
-            usados_contable.add(id_contable)
-
-            fecha_cont = cont_row["fecha_norm"]
-            conc_cont = cont_row["concepto"]
-            monto_cont = cont_row["monto_norm"]
-        else:
-            fecha_cont = None
-            conc_cont = None
-            monto_cont = None
-
-        resultados.append(
-            {
-                "Fecha gasto": gasto_row["fecha_norm"].date()
-                if gasto_row["fecha_norm"] is not None
-                else None,
-                "Concepto gasto": gasto_row["concepto"],
-                "Monto gasto": gasto_row["monto_norm"],
-                "Fecha contable": fecha_cont.date() if fecha_cont is not None else None,
-                "Concepto contable": conc_cont,
-                "Monto contable": monto_cont,
-                "Estado": estado,
-                "Observaciones": observacion,
-            }
-        )
-
-    # Paso 1: conciliados exactos
+    # Emparejamiento 1:1 por (fecha, monto)
     for _, gasto_row in gastos.iterrows():
+        id_g = int(gasto_row["id_gasto"])
+        if id_g in usados_gasto:
+            continue
+
         candidatos = contable[
-            (contable["id_contable"].isin(usados_contable) == False)
+            (~contable["id_contable"].isin(usados_contable))
             & (contable["fecha_norm"] == gasto_row["fecha_norm"])
             & (contable["monto_norm"] == gasto_row["monto_norm"])
         ]
 
-        if candidatos.empty:
+        if not candidatos.empty:
+            # Tomamos el primero disponible (cualquiera da igual, fecha y monto coinciden)
+            id_c = int(candidatos.iloc[0]["id_contable"])
+            usados_gasto.add(id_g)
+            usados_contable.add(id_c)
+
+    # Movimientos que difieren: sin contraparte
+    solo_en_gastos: List[Dict[str, Any]] = []
+    solo_en_contable: List[Dict[str, Any]] = []
+
+    for _, row in gastos.iterrows():
+        if int(row["id_gasto"]) in usados_gasto:
             continue
-
-        # Elegir el de mayor similitud de concepto
-        mejor_id: Optional[int] = None
-        mejor_sim = -1.0
-        for _, cont_row in candidatos.iterrows():
-            sim = _calcular_similitud_concepto(
-                gasto_row["concepto_norm"], cont_row["concepto_norm"]
-            )
-            if sim > mejor_sim:
-                mejor_sim = sim
-                mejor_id = int(cont_row["id_contable"])
-
-        if mejor_id is not None and mejor_sim >= umbral_conciliado:
-            registrar_match(
-                id_gasto=int(gasto_row["id_gasto"]),
-                id_contable=mejor_id,
-                estado="Conciliado",
-                observacion=f"Similitud concepto {mejor_sim:.1f}%",
-            )
-
-    # Paso 2: conciliaciones posibles para gastos aún no conciliados
-    conciliados_ids_gasto = {r["Fecha gasto"] for r in resultados}
-
-    gastos_pendientes = gastos[
-        gastos["fecha_norm"].notna()
-        & ~gastos["id_gasto"].isin(
-            [gastos[gastos["fecha_norm"].dt.date == fg].index[0] for fg in conciliados_ids_gasto]
-            if conciliados_ids_gasto
-            else []
-        )
-    ]
-
-    for _, gasto_row in gastos_pendientes.iterrows():
-        fecha_min = gasto_row["fecha_norm"] - timedelta(days=ventana_dias_posible)
-        fecha_max = gasto_row["fecha_norm"] + timedelta(days=ventana_dias_posible)
-
-        candidatos = contable[
-            (contable["id_contable"].isin(usados_contable) == False)
-            & (contable["fecha_norm"] >= fecha_min)
-            & (contable["fecha_norm"] <= fecha_max)
-            & (contable["monto_norm"] == gasto_row["monto_norm"])
-        ]
-
-        if candidatos.empty:
-            continue
-
-        mejor_id: Optional[int] = None
-        mejor_sim = -1.0
-        for _, cont_row in candidatos.iterrows():
-            sim = _calcular_similitud_concepto(
-                gasto_row["concepto_norm"], cont_row["concepto_norm"]
-            )
-            if sim > mejor_sim:
-                mejor_sim = sim
-                mejor_id = int(cont_row["id_contable"])
-
-        if (
-            mejor_id is not None
-            and mejor_sim >= umbral_posible_min
-            and mejor_sim <= umbral_posible_max
-        ):
-            registrar_match(
-                id_gasto=int(gasto_row["id_gasto"]),
-                id_contable=mejor_id,
-                estado="Posible",
-                observacion=f"Fecha dentro de ±{ventana_dias_posible} días, similitud {mejor_sim:.1f}%",
-            )
-
-    # Paso 3: gastos no conciliados
-    ids_gasto_conciliados = {gastos[gastos["fecha_norm"].dt.date == r["Fecha gasto"]].index[0]
-                             for r in resultados}
-    for _, gasto_row in gastos.iterrows():
-        if int(gasto_row["id_gasto"]) in ids_gasto_conciliados:
-            continue
-        registrar_match(
-            id_gasto=int(gasto_row["id_gasto"]),
-            id_contable=None,
-            estado="No conciliado",
-            observacion="No se encontró registro contable coincidente.",
-        )
-
-    # Paso 4: contables sobrantes sin gasto asociado
-    ids_contable_usados = usados_contable
-    for _, cont_row in contable.iterrows():
-        if int(cont_row["id_contable"]) in ids_contable_usados:
-            continue
-        resultados.append(
+        fecha_val = row["fecha_norm"]
+        fecha_str = fecha_val.strftime("%Y-%m-%d") if fecha_val is not None else ""
+        solo_en_gastos.append(
             {
-                "Fecha gasto": None,
-                "Concepto gasto": None,
-                "Monto gasto": None,
-                "Fecha contable": cont_row["fecha_norm"].date()
-                if cont_row["fecha_norm"] is not None
-                else None,
-                "Concepto contable": cont_row["concepto"],
-                "Monto contable": cont_row["monto_norm"],
-                "Estado": "No conciliado",
-                "Observaciones": "Registro contable sin gasto asociado.",
+                "fecha": fecha_str,
+                "monto": float(row["monto_norm"]) if row["monto_norm"] is not None else 0,
+                "descripcion": str(row["concepto"]) if row["concepto"] else "",
             }
         )
 
-    # Construimos el DataFrame final en el orden solicitado
-    df_resultado = pd.DataFrame(resultados)
-    columnas_orden = [
-        "Fecha gasto",
-        "Concepto gasto",
-        "Monto gasto",
-        "Fecha contable",
-        "Concepto contable",
-        "Monto contable",
-        "Estado",
-        "Observaciones",
-    ]
-    df_resultado = df_resultado[columnas_orden]
+    for _, row in contable.iterrows():
+        if int(row["id_contable"]) in usados_contable:
+            continue
+        fecha_val = row["fecha_norm"]
+        fecha_str = fecha_val.strftime("%Y-%m-%d") if fecha_val is not None else ""
+        solo_en_contable.append(
+            {
+                "fecha": fecha_str,
+                "monto": float(row["monto_norm"]) if row["monto_norm"] is not None else 0,
+                "descripcion": str(row["concepto"]) if row["concepto"] else "",
+            }
+        )
 
-    return df_resultado
+    total_gastos = len(gastos)
+    total_contable = len(contable)
+    coincidencias = len(usados_gasto)
+
+    return {
+        "solo_en_gastos": solo_en_gastos,
+        "solo_en_contable": solo_en_contable,
+        "resumen": {
+            "total_gastos": total_gastos,
+            "total_contable": total_contable,
+            "coincidencias": coincidencias,
+            "diferentes_gastos": len(solo_en_gastos),
+            "diferentes_contable": len(solo_en_contable),
+        },
+    }

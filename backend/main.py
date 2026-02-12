@@ -6,23 +6,18 @@ en formato multipart/form-data:
   - gastos_file
   - contable_file
 
-Devuelve un archivo Excel con el resultado de la conciliación.
+Compara por fecha y monto; devuelve JSON con los movimientos que difieren.
 En caso de error, responde con JSON claro y estructurado.
 """
 
 from __future__ import annotations
 
-from datetime import datetime
-from io import BytesIO
-from pathlib import Path
-
-import pandas as pd
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import JSONResponse
 
 from . import config
-from .conciliador import conciliar, leer_excel_en_memoria
+from .conciliador import comparar_movimientos, leer_excel_en_memoria
 from .schemas import ErrorResponse
 
 
@@ -56,12 +51,8 @@ async def http_exception_handler(_, exc: HTTPException):
 
 @app.post(
     "/conciliar",
-    response_class=FileResponse,
     responses={
-        200: {
-            "content": {"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": {}},
-            "description": "Archivo Excel con el resultado de la conciliación.",
-        },
+        200: {"description": "JSON con los movimientos que difieren entre ambos Excels."},
         400: {"model": ErrorResponse, "description": "Error de validación o entrada."},
         500: {"model": ErrorResponse, "description": "Error interno del servidor."},
     },
@@ -71,13 +62,12 @@ async def conciliar_endpoint(
     contable_file: UploadFile = File(..., description="Archivo Excel con el registro contable."),
 ):
     """
-    Endpoint principal para realizar la conciliación.
+    Endpoint principal para comparar dos Excels por fecha y monto.
 
     - Valida que se reciban ambos archivos.
     - Lee los excels en memoria.
-    - Ejecuta la lógica de conciliación.
-    - Guarda el resultado en la carpeta outputs.
-    - Devuelve el archivo Excel resultante.
+    - Compara: fecha igual y monto igual = OK.
+    - Devuelve los movimientos que no encuentran contraparte.
     """
     if not gastos_file or not contable_file:
         raise HTTPException(status_code=400, detail="Debe enviar ambos archivos: gastos y contable.")
@@ -104,35 +94,15 @@ async def conciliar_endpoint(
                 "Verifique que el formato sea válido (.xlsx).",
             )
 
-        # Ejecutamos conciliación
-        df_resultado = conciliar(gastos_df, contable_df)
-
-        # Guardamos resultado a disco en carpeta outputs
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-        filename = f"conciliacion_{timestamp}.xlsx"
-        output_path: Path = config.OUTPUTS_DIR / filename
-
-        with BytesIO() as buffer:
-            with pd.ExcelWriter(buffer, engine="openpyxl") as writer:
-                df_resultado.to_excel(writer, index=False, sheet_name="Conciliacion")
-            buffer.seek(0)
-            output_path.write_bytes(buffer.read())
-
-        # Devolvemos el archivo guardado
-        return FileResponse(
-            path=str(output_path),
-            media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            filename=filename,
-        )
+        resultado = comparar_movimientos(gastos_df, contable_df)
+        return resultado
 
     except HTTPException:
-        # Re-lanzamos HTTPException para que la maneje el handler configurado
         raise
     except Exception as e:
-        # Cualquier otro error se envuelve en un 500 controlado
         raise HTTPException(
             status_code=500,
-            detail=f"Error interno al realizar la conciliación: {e}",
+            detail=f"Error interno al comparar los archivos: {e}",
         )
 
 
