@@ -179,7 +179,7 @@ def comparar_movimientos(
         if row["id"] in usados_extracto:
             continue
         fn = row["fecha_norm"]
-        fecha_str = fn.strftime("%Y-%m-%d") if fn else ""
+        fecha_str = fn.strftime("%d/%m/%Y") if fn else ""
         solo_en_extractos.append({
             "fecha": fecha_str,
             "monto": float(row["monto_norm"]),
@@ -190,7 +190,7 @@ def comparar_movimientos(
         if row["id"] in usados_contable:
             continue
         fn = row["fecha_norm"]
-        fecha_str = fn.strftime("%Y-%m-%d") if fn else ""
+        fecha_str = fn.strftime("%d/%m/%Y") if fn else ""
         solo_en_contable.append({
             "fecha": fecha_str,
             "monto": float(row["monto_norm"]),
