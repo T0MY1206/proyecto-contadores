@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Optional
 
 from openpyxl import load_workbook
 
@@ -20,6 +20,8 @@ class ColumnConfig:
     fecha: str
     concepto: str
     monto: str
+    monto_creditos: Optional[str] = None
+    monto_debitos: Optional[str] = None
 
 
 def _inferir_columnas(columnas: List[str]) -> ColumnConfig:
@@ -34,17 +36,31 @@ def _inferir_columnas(columnas: List[str]) -> ColumnConfig:
             f"No se encontró ninguna de las columnas requeridas: {', '.join(posibles)}"
         )
 
+    def buscar_opt(posibles: List[str]) -> Optional[str]:
+        for candidato in posibles:
+            if candidato in cols_lower:
+                return cols_lower[candidato]
+        return None
+
     fecha = buscar([
-        "fecha", "fecha extracto", "fecha gasto", "fecha_contable", "f_extracto", "f_gasto", "f_contable",
-        "fecha ato", "fecha comp", "fecha valor",
+        "fecha", "fecha extracto", "fecha gasto", "fecha_contable", "fecha_acreditacion",
+        "f_extracto", "f_gasto", "f_contable", "fecha ato", "fecha comp", "fecha valor",
     ])
     concepto = buscar([
-        "concepto", "descripcion", "detalle", "concepto extracto", "concepto gasto", "concepto contable",
-        "nombre_cuenta",
+        "concepto", "descripcion", "detalle", "movimiento",
+        "concepto extracto", "concepto gasto", "concepto contable", "nombre_cuenta",
+        "orden_pago", "nro_movimiento", "nro_deposito",
     ])
+    creditos = buscar_opt(["creditos", "crédito", "credito"])
+    debitos = buscar_opt(["debitos", "débito", "debito"])
+    if creditos is not None and debitos is not None:
+        return ColumnConfig(
+            fecha=fecha, concepto=concepto, monto=creditos,
+            monto_creditos=creditos, monto_debitos=debitos,
+        )
     monto = buscar([
         "monto", "importe", "valor", "monto extracto", "monto gasto", "monto contable",
-        "neto", "importe_debe", "importe_haber",
+        "neto", "saldo", "importe_debe", "importe_haber",
     ])
     return ColumnConfig(fecha=fecha, concepto=concepto, monto=monto)
 
@@ -52,12 +68,12 @@ def _inferir_columnas(columnas: List[str]) -> ColumnConfig:
 def leer_excel_en_memoria(file_bytes: bytes) -> List[Dict[str, Any]]:
     """
     Lee un archivo Excel desde bytes y devuelve una lista de diccionarios (una fila por dict).
-    Usa la primera hoja. Prueba fila 0 o 1 como encabezado.
+    Usa la primera hoja. Prueba varias filas como encabezado (0..11) para soportar informes con títulos.
     """
     buffer = BytesIO(file_bytes)
     ultimo_error: Exception | None = None
 
-    for header_row in (0, 1):
+    for header_row in range(12):
         try:
             buffer.seek(0)
             wb = load_workbook(buffer, read_only=False, data_only=True)
@@ -103,11 +119,16 @@ def _preparar_filas(filas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
     for idx, fila in enumerate(filas):
         fecha_val = fila.get(config.fecha)
         concepto_val = fila.get(config.concepto)
-        monto_val = fila.get(config.monto)
-
         fecha_norm = normalizar_fecha(fecha_val)
         concepto_norm = normalizar_concepto(concepto_val)
-        monto_norm = normalizar_monto(monto_val)
+        if config.monto_creditos is not None and config.monto_debitos is not None:
+            cr = normalizar_monto(fila.get(config.monto_creditos)) or 0.0
+            db = normalizar_monto(fila.get(config.monto_debitos)) or 0.0
+            monto_val = cr - db
+            monto_norm = round(monto_val, 2)
+        else:
+            monto_val = fila.get(config.monto)
+            monto_norm = normalizar_monto(monto_val)
 
         if fecha_norm is None or monto_norm is None:
             continue
