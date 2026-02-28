@@ -19,7 +19,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 from . import config
-from .bancos_extractos import BANCOS_EXTRACTOS, detectar_banco_por_headers, get_bancos_lista
+from .bancos_extractos import BANCOS_EXTRACTOS, get_bancos_lista
 from .conciliador import comparar_movimientos, leer_excel_en_memoria
 from .schemas import ErrorResponse
 
@@ -58,14 +58,15 @@ async def http_exception_handler(_, exc: HTTPException):
 async def conciliar_endpoint(
     extractos_file: UploadFile = File(..., description="Archivo Excel con los extractos."),
     contable_file: UploadFile = File(..., description="Archivo Excel con el registro contable."),
-    banco_extractos: str = Form(..., description="Banco del archivo de extractos (ej: santander, otro_banco)."),
+    banco_extractos: str = Form(..., description="Banco del extracto (santander o provincia)."),
 ):
     if not extractos_file or not contable_file:
         raise HTTPException(status_code=400, detail="Debe enviar ambos archivos: extractos y contable.")
-    if banco_extractos not in BANCOS_EXTRACTOS:
+    # Solo se valida que esté seleccionado un tipo de extracto en el combo; no se inspecciona el archivo.
+    if not banco_extractos or banco_extractos not in BANCOS_EXTRACTOS:
         raise HTTPException(
             status_code=400,
-            detail=f"Banco de extractos no válido. Opciones: {', '.join(BANCOS_EXTRACTOS.keys())}.",
+            detail="Seleccioná el tipo de extracto (Santander o Banco Provincia) en el combo.",
         )
 
     try:
@@ -87,17 +88,6 @@ async def conciliar_endpoint(
                 status_code=400,
                 detail="No fue posible leer uno de los archivos Excel. Verifique que el formato sea válido (.xlsx).",
             )
-
-        # Validar que el archivo de extractos corresponda al banco seleccionado
-        if extractos_filas:
-            headers_archivo = list(extractos_filas[0].keys())
-            banco_detectado = detectar_banco_por_headers(headers_archivo)
-            if banco_detectado is not None and banco_detectado != banco_extractos:
-                nombre_correcto = BANCOS_EXTRACTOS[banco_detectado]["nombre"]
-                raise HTTPException(
-                    status_code=400,
-                    detail=f"El archivo de extractos parece ser de {nombre_correcto}. Seleccioná ese banco en el formulario.",
-                )
 
         resultado = comparar_movimientos(
             extractos_filas, contable_filas, extractos_banco_id=banco_extractos

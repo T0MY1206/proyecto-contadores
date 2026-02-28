@@ -156,25 +156,45 @@ function agregarMensaje(texto, tipo = "info") {
 }
 
 function formatearMonto(num) {
+  if (num === undefined || num === null || Number.isNaN(Number(num))) return "—";
   return new Intl.NumberFormat("es-AR", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(num);
+  }).format(Number(num));
 }
 
 function formatearFecha(str) {
-  if (!str) return "—";
-  const [a, m, d] = str.split("-");
-  return `${d}/${m}/${a}`;
+  if (str === undefined || str === null) return "—";
+  str = String(str).trim();
+  if (str === "") return "—";
+  if (str.includes("/")) return str;
+  const partes = str.split("-");
+  const a = partes[0];
+  const m = partes[1];
+  const d = partes[2];
+  if (partes.length >= 3 && a && m && d) return `${d}/${m}/${a}`;
+  return str;
+}
+
+function safeStr(val) {
+  if (val === undefined || val === null) return "";
+  return String(val).trim();
 }
 
 function renderizarMovimiento(mov) {
+  if (!mov || typeof mov !== "object") return document.createElement("li");
+  const fecha = formatearFecha(mov.fecha);
+  const monto = formatearMonto(mov.monto);
+  const desc = escapeHtml(safeStr(mov.descripcion));
   const li = document.createElement("li");
   li.className = "movimiento-item";
+  const fechaSafe = (fecha === "undefined" || fecha == null) ? "—" : fecha;
+  const montoSafe = (monto === "undefined" || monto == null) ? "—" : monto;
+  const descSafe = (desc === "undefined" || desc == null) ? "" : desc;
   li.innerHTML = `
-    <span class="mov-fecha">${formatearFecha(mov.fecha)}</span>
-    <span class="mov-monto">$${formatearMonto(mov.monto)}</span>
-    <span class="mov-descripcion">${escapeHtml(mov.descripcion || "")}</span>
+    <span class="mov-fecha">${fechaSafe}</span>
+    <span class="mov-monto">$${montoSafe}</span>
+    <span class="mov-descripcion">${descSafe}</span>
   `;
   return li;
 }
@@ -186,10 +206,12 @@ function escapeHtml(texto) {
 }
 
 function mostrarResultado(data) {
-  const { solo_en_extractos, solo_en_contable, resumen } = data;
+  const solo_en_extractos = Array.isArray(data.solo_en_extractos) ? data.solo_en_extractos : [];
+  const solo_en_contable = Array.isArray(data.solo_en_contable) ? data.solo_en_contable : [];
+  const resumen = data.resumen || {};
 
-  resumenTexto.textContent = `${resumen.coincidencias} coincidencias (fecha + monto iguales). ` +
-    `${resumen.diferentes_extractos} solo en extractos. ${resumen.diferentes_contable} solo en contable.`;
+  resumenTexto.textContent = `${resumen.coincidencias ?? 0} coincidencias (fecha + monto iguales). ` +
+    `${resumen.diferentes_extractos ?? 0} solo en extractos. ${resumen.diferentes_contable ?? 0} solo en contable.`;
 
   listaExtractos.innerHTML = "";
   listaContable.innerHTML = "";

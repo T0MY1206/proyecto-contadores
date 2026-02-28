@@ -239,9 +239,9 @@ def comparar_movimientos(
         fn = row["fecha_norm"]
         fecha_str = fn.strftime("%d/%m/%Y") if fn else ""
         solo_en_extractos.append({
-            "fecha": fecha_str,
+            "fecha": str(fecha_str),
             "monto": float(row["monto_norm"]),
-            "descripcion": str(row["concepto"]) if row["concepto"] else "",
+            "descripcion": str(row["concepto"]) if row["concepto"] is not None else "",
         })
 
     for row in contable:
@@ -250,9 +250,9 @@ def comparar_movimientos(
         fn = row["fecha_norm"]
         fecha_str = fn.strftime("%d/%m/%Y") if fn else ""
         solo_en_contable.append({
-            "fecha": fecha_str,
+            "fecha": str(fecha_str),
             "monto": float(row["monto_norm"]),
-            "descripcion": str(row["concepto"]) if row["concepto"] else "",
+            "descripcion": str(row["concepto"]) if row["concepto"] is not None else "",
         })
 
     return {
