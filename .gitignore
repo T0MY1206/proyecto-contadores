@@ -1,1 +1,9 @@
-Archivos utiles/SMA Santander extractos.xlsx
+# Bytecode Python
+**/__pycache__/
+*.pyc
+
+# Excels generados por la app
+outputs/
+
+# Archivos de prueba / datos locales
+Archivos utiles/
