@@ -22,8 +22,30 @@ const soloExtractosDiv = document.getElementById("solo-extractos");
 const soloContableDiv = document.getElementById("solo-contable");
 const descargarExcelBtn = document.getElementById("descargar-excel-btn");
 const temaBtn = document.getElementById("tema-btn");
+const bancoExtractosSelect = document.getElementById("banco-extractos");
 
 const TEMA_KEY = "conciliador-tema";
+
+// Cargar lista de bancos para el selector de extractos
+async function cargarBancos() {
+  if (!bancoExtractosSelect) return;
+  try {
+    const response = await fetch(`${API_BASE_URL}/bancos`);
+    if (!response.ok) return;
+    const data = await response.json();
+    const bancos = data.bancos || [];
+    bancoExtractosSelect.innerHTML = '<option value="" disabled selected>Seleccionar banco...</option>';
+    bancos.forEach((b) => {
+      const opt = document.createElement("option");
+      opt.value = b.id;
+      opt.textContent = b.nombre;
+      bancoExtractosSelect.appendChild(opt);
+    });
+  } catch (_) {
+    // Si el backend no está disponible, dejar solo el placeholder
+  }
+}
+cargarBancos();
 
 function esTemaOscuro() {
   return document.body.classList.contains("dark-theme");
@@ -107,6 +129,23 @@ let ultimoExcelFilename = null;
 
 function limpiarMensajes() {
   mensajesContainer.innerHTML = "";
+}
+
+/** Limpia los campos del formulario (banco, archivos) para poder cargar nuevos. */
+function limpiarFormulario() {
+  const extractosFileInput = document.getElementById("extractos_file");
+  const contableFileInput = document.getElementById("contable_file");
+  if (extractosFileInput) {
+    extractosFileInput.value = "";
+    actualizarUploadZone(extractosFileInput, "upload-zone-extractos", "filename-extractos");
+  }
+  if (contableFileInput) {
+    contableFileInput.value = "";
+    actualizarUploadZone(contableFileInput, "upload-zone-contable", "filename-contable");
+  }
+  if (bancoExtractosSelect) {
+    bancoExtractosSelect.value = "";
+  }
 }
 
 function agregarMensaje(texto, tipo = "info") {
@@ -208,13 +247,19 @@ form.addEventListener("submit", async (event) => {
 
   const extractosFileInput = document.getElementById("extractos_file");
   const contableFileInput = document.getElementById("contable_file");
+  const bancoVal = bancoExtractosSelect && bancoExtractosSelect.value;
 
+  if (!bancoVal) {
+    agregarMensaje("Debe seleccionar el banco del archivo de extractos.", "error");
+    return;
+  }
   if (!extractosFileInput.files[0] || !contableFileInput.files[0]) {
     agregarMensaje("Debe seleccionar ambos archivos antes de comparar.", "error");
     return;
   }
 
   const formData = new FormData();
+  formData.append("banco_extractos", bancoVal);
   formData.append("extractos_file", extractosFileInput.files[0]);
   formData.append("contable_file", contableFileInput.files[0]);
 
@@ -244,6 +289,7 @@ form.addEventListener("submit", async (event) => {
     limpiarMensajes();
     agregarMensaje("Comparación completada. Puede descargar el Excel con el resultado.", "success");
     mostrarResultado(data);
+    limpiarFormulario();
   } catch (error) {
     console.error(error);
     limpiarMensajes();

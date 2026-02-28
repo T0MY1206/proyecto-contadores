@@ -196,6 +196,24 @@ form {
   font-size: 0.95rem;
 }
 
+#banco-extractos,
+select.banco-extractos {
+  width: 100%;
+  max-width: 320px;
+  padding: 0.6rem 0.75rem;
+  font-size: 1rem;
+  border: 2px solid var(--borde-input);
+  border-radius: 8px;
+  background: var(--bg-input);
+  color: var(--texto);
+  cursor: pointer;
+}
+
+#banco-extractos:focus {
+  outline: 2px solid #2563eb;
+  outline-offset: 2px;
+}
+
 .upload-zone {
   display: flex;
   flex-direction: column;

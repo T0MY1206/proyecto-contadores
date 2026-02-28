@@ -11,7 +11,7 @@ from __future__ import annotations
 from datetime import datetime
 from io import BytesIO
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -19,6 +19,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Font
 
 from . import config
+from .bancos_extractos import BANCOS_EXTRACTOS, detectar_banco_por_headers, get_bancos_lista
 from .conciliador import comparar_movimientos, leer_excel_en_memoria
 from .schemas import ErrorResponse
 
@@ -57,9 +58,15 @@ async def http_exception_handler(_, exc: HTTPException):
 async def conciliar_endpoint(
     extractos_file: UploadFile = File(..., description="Archivo Excel con los extractos."),
     contable_file: UploadFile = File(..., description="Archivo Excel con el registro contable."),
+    banco_extractos: str = Form(..., description="Banco del archivo de extractos (ej: santander, otro_banco)."),
 ):
     if not extractos_file or not contable_file:
         raise HTTPException(status_code=400, detail="Debe enviar ambos archivos: extractos y contable.")
+    if banco_extractos not in BANCOS_EXTRACTOS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Banco de extractos no válido. Opciones: {', '.join(BANCOS_EXTRACTOS.keys())}.",
+        )
 
     try:
         extractos_bytes = await extractos_file.read()
@@ -71,7 +78,7 @@ async def conciliar_endpoint(
             raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
 
         try:
-            extractos_filas = leer_excel_en_memoria(extractos_bytes)
+            extractos_filas = leer_excel_en_memoria(extractos_bytes, banco_extractos_id=banco_extractos)
             contable_filas = leer_excel_en_memoria(contable_bytes)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
@@ -81,7 +88,20 @@ async def conciliar_endpoint(
                 detail="No fue posible leer uno de los archivos Excel. Verifique que el formato sea válido (.xlsx).",
             )
 
-        resultado = comparar_movimientos(extractos_filas, contable_filas)
+        # Validar que el archivo de extractos corresponda al banco seleccionado
+        if extractos_filas:
+            headers_archivo = list(extractos_filas[0].keys())
+            banco_detectado = detectar_banco_por_headers(headers_archivo)
+            if banco_detectado is not None and banco_detectado != banco_extractos:
+                nombre_correcto = BANCOS_EXTRACTOS[banco_detectado]["nombre"]
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"El archivo de extractos parece ser de {nombre_correcto}. Seleccioná ese banco en el formulario.",
+                )
+
+        resultado = comparar_movimientos(
+            extractos_filas, contable_filas, extractos_banco_id=banco_extractos
+        )
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"comparacion_{timestamp}.xlsx"
@@ -144,6 +164,12 @@ async def descargar_excel(filename: str):
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         filename=filename,
     )
+
+
+@app.get("/bancos")
+async def listar_bancos():
+    """Devuelve la lista de bancos disponibles para el archivo de extractos."""
+    return {"bancos": get_bancos_lista()}
 
 
 @app.get("/health")

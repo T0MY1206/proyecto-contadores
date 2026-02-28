@@ -33,6 +33,15 @@
       <main>
         <form id="conciliacion-form">
           <div class="field">
+            <span class="field-label">Banco del extracto</span>
+            <select id="banco-extractos" name="banco_extractos" required aria-label="Seleccionar banco del archivo de extractos">
+              <option value="" disabled selected>Seleccionar banco...</option>
+              <option value="santander">Santander</option>
+              <option value="provincia">Banco Provincia</option>
+              <!-- Si el backend está disponible, script.js reemplaza con la lista de /bancos -->
+            </select>
+          </div>
+          <div class="field">
             <span class="field-label">Archivo de extractos (.xlsx)</span>
             <label for="extractos_file" class="upload-zone" id="upload-zone-extractos">
               <input type="file" id="extractos_file" name="extractos_file" accept=".xlsx" required class="upload-input" />

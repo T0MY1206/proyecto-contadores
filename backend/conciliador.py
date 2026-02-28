@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional
 
 from openpyxl import load_workbook
 
+from .bancos_extractos import BANCOS_EXTRACTOS
 from .normalizador import normalizar_concepto, normalizar_fecha, normalizar_monto
 
 
@@ -65,10 +66,52 @@ def _inferir_columnas(columnas: List[str]) -> ColumnConfig:
     return ColumnConfig(fecha=fecha, concepto=concepto, monto=monto)
 
 
-def leer_excel_en_memoria(file_bytes: bytes) -> List[Dict[str, Any]]:
+def _column_config_para_banco(banco_id: str, columnas: List[str]) -> ColumnConfig:
+    """
+    Obtiene la ColumnConfig para un banco de extractos usando los nombres
+    de columnas definidos para ese banco. Los headers del Excel deben coincidir.
+    """
+    if banco_id not in BANCOS_EXTRACTOS:
+        raise ValueError(f"Banco desconocido: '{banco_id}'.")
+    conf_banco = BANCOS_EXTRACTOS[banco_id]
+    cols_lower = {c.strip().lower() if c else "": c for c in columnas if c is not None}
+    cols_lower = {k: v for k, v in cols_lower.items() if k}
+
+    def buscar(posibles: List[str]) -> str:
+        for candidato in posibles:
+            if candidato in cols_lower:
+                return cols_lower[candidato]
+        raise ValueError(
+            f"No se encontró ninguna de las columnas requeridas para este banco: {', '.join(posibles)}"
+        )
+
+    def buscar_opt(posibles: List[str]) -> Optional[str]:
+        for candidato in posibles:
+            if candidato in cols_lower:
+                return cols_lower[candidato]
+        return None
+
+    fecha = buscar(conf_banco["fecha"])
+    concepto = buscar(conf_banco["concepto"])
+    creditos = buscar_opt(conf_banco.get("creditos", []))
+    debitos = buscar_opt(conf_banco.get("debitos", []))
+    if creditos is not None and debitos is not None:
+        return ColumnConfig(
+            fecha=fecha, concepto=concepto, monto=creditos,
+            monto_creditos=creditos, monto_debitos=debitos,
+        )
+    monto = buscar(conf_banco["monto"])
+    return ColumnConfig(fecha=fecha, concepto=concepto, monto=monto)
+
+
+def leer_excel_en_memoria(
+    file_bytes: bytes,
+    banco_extractos_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
     """
     Lee un archivo Excel desde bytes y devuelve una lista de diccionarios (una fila por dict).
     Usa la primera hoja. Prueba varias filas como encabezado (0..11) para soportar informes con títulos.
+    Si banco_extractos_id está definido, usa la configuración de columnas de ese banco (solo para extractos).
     """
     buffer = BytesIO(file_bytes)
     ultimo_error: Exception | None = None
@@ -85,7 +128,11 @@ def leer_excel_en_memoria(file_bytes: bytes) -> List[Dict[str, Any]]:
                 continue
 
             headers = [str(c).strip() if c is not None else "" for c in rows[header_row]]
-            config = _inferir_columnas(headers)
+            config = (
+                _column_config_para_banco(banco_extractos_id, headers)
+                if banco_extractos_id
+                else _inferir_columnas(headers)
+            )
 
             data_rows = rows[header_row + 1:]
             out = []
@@ -108,12 +155,21 @@ def leer_excel_en_memoria(file_bytes: bytes) -> List[Dict[str, Any]]:
     )
 
 
-def _preparar_filas(filas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
-    """Aplica normalizaciones y filtra filas inválidas."""
+def _preparar_filas(
+    filas: List[Dict[str, Any]],
+    column_config: Optional[ColumnConfig] = None,
+    banco_extractos_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """Aplica normalizaciones y filtra filas inválidas. Si se pasa column_config o banco_extractos_id, se usa en lugar de inferir."""
     if not filas:
         return []
     headers = list(filas[0].keys())
-    config = _inferir_columnas(headers)
+    if column_config is not None:
+        config = column_config
+    elif banco_extractos_id is not None:
+        config = _column_config_para_banco(banco_extractos_id, headers)
+    else:
+        config = _inferir_columnas(headers)
 
     resultado = []
     for idx, fila in enumerate(filas):
@@ -150,11 +206,13 @@ def _preparar_filas(filas: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 def comparar_movimientos(
     extractos_filas: List[Dict[str, Any]],
     contable_filas: List[Dict[str, Any]],
+    extractos_banco_id: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
     Compara movimientos por fecha y monto. Devuelve los que no tienen contraparte.
+    Si extractos_banco_id está definido, se usa la config de columnas de ese banco para los extractos.
     """
-    extractos = _preparar_filas(extractos_filas)
+    extractos = _preparar_filas(extractos_filas, banco_extractos_id=extractos_banco_id)
     contable = _preparar_filas(contable_filas)
 
     usados_extracto: set[int] = set()
