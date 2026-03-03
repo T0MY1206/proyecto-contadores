@@ -82,8 +82,8 @@ body.dark-theme {
 
 .header-contenedor {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  align-items: center;
+  justify-content: center;
   gap: 1rem;
   margin-bottom: 2rem;
   position: relative;
@@ -113,6 +113,9 @@ header p {
   cursor: pointer;
   border-radius: 999px;
   line-height: 0;
+  position: absolute;
+  top: 0;
+  right: 0;
 }
 
 .tema-switch:focus-visible {
