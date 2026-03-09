@@ -23,6 +23,14 @@ const soloContableDiv = document.getElementById("solo-contable");
 const descargarExcelBtn = document.getElementById("descargar-excel-btn");
 const temaBtn = document.getElementById("tema-btn");
 const bancoExtractosSelect = document.getElementById("banco-extractos");
+const chequesField = document.getElementById("cheques-diferidos-field");
+const chequesCheckbox = document.getElementById("tiene-cheques-diferidos");
+const chequesDetalle = document.getElementById("cheques-diferidos-detalle");
+const paginaChequesSelect = document.getElementById("pagina-cheques-diferidos");
+const infoHojasExtracto = document.getElementById("info-hojas-extracto");
+
+let totalHojasExtracto = null;
+let nombresHojasExtracto = [];
 
 const TEMA_KEY = "conciliador-tema";
 
@@ -96,7 +104,12 @@ function setupUploadZone(inputId, zoneId, filenameId) {
   const input = document.getElementById(inputId);
   const zone = document.getElementById(zoneId);
   if (!input || !zone) return;
-  input.addEventListener("change", () => actualizarUploadZone(input, zoneId, filenameId));
+  input.addEventListener("change", () => {
+    actualizarUploadZone(input, zoneId, filenameId);
+    if (inputId === "extractos_file") {
+      manejarCambioExtractosFile(input.files && input.files[0]);
+    }
+  });
   ["dragenter", "dragover"].forEach((ev) => {
     zone.addEventListener(ev, (e) => {
       e.preventDefault();
@@ -127,6 +140,71 @@ setupUploadZone("contable_file", "upload-zone-contable", "filename-contable");
 
 let ultimoExcelFilename = null;
 
+function resetChequesDiferidos() {
+  totalHojasExtracto = null;
+  nombresHojasExtracto = [];
+  if (chequesCheckbox) chequesCheckbox.checked = false;
+  if (paginaChequesSelect) {
+    paginaChequesSelect.innerHTML = '<option value="" disabled selected>Seleccionar hoja...</option>';
+  }
+  if (chequesDetalle) chequesDetalle.style.display = "none";
+  if (chequesField) chequesField.style.display = "none";
+  if (infoHojasExtracto) infoHojasExtracto.textContent = "";
+}
+
+// Asegurar que el bloque de cheques diferidos esté oculto al cargar la página.
+resetChequesDiferidos();
+
+async function manejarCambioExtractosFile(file) {
+  resetChequesDiferidos();
+  if (!file) return;
+  try {
+    const formData = new FormData();
+    formData.append("extractos_file", file);
+    const response = await fetch(`${API_BASE_URL}/info_extracto`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    const total = typeof data.total_hojas === "number" ? data.total_hojas : 0;
+    const hojas = Array.isArray(data.hojas) ? data.hojas : [];
+    totalHojasExtracto = total;
+    nombresHojasExtracto = hojas.map((h) => h && h.nombre ? h.nombre : `Hoja ${h.indice || ""}`);
+    if (chequesField && totalHojasExtracto > 0) {
+      chequesField.style.display = "flex";
+    }
+    if (infoHojasExtracto && totalHojasExtracto > 0) {
+      infoHojasExtracto.textContent =
+        totalHojasExtracto === 1
+          ? "El archivo de extractos tiene 1 hoja."
+          : `El archivo de extractos tiene ${totalHojasExtracto} hojas.`;
+    }
+  } catch (_) {
+    // Si falla, se deja el check oculto y no se interrumpe el flujo principal.
+  }
+}
+
+if (chequesCheckbox) {
+  chequesCheckbox.addEventListener("change", () => {
+    if (!chequesDetalle) return;
+    if (chequesCheckbox.checked) {
+      if (paginaChequesSelect && totalHojasExtracto && totalHojasExtracto > 0) {
+        paginaChequesSelect.innerHTML = '<option value="" disabled selected>Seleccionar hoja...</option>';
+        nombresHojasExtracto.forEach((nombre, idx) => {
+          const opt = document.createElement("option");
+          opt.value = String(idx + 1);
+          opt.textContent = `${idx + 1} - ${nombre}`;
+          paginaChequesSelect.appendChild(opt);
+        });
+      }
+      chequesDetalle.style.display = "flex";
+    } else {
+      chequesDetalle.style.display = "none";
+    }
+  });
+}
+
 function limpiarMensajes() {
   mensajesContainer.innerHTML = "";
 }
@@ -146,6 +224,7 @@ function limpiarFormulario() {
   if (bancoExtractosSelect) {
     bancoExtractosSelect.value = "";
   }
+  resetChequesDiferidos();
 }
 
 function agregarMensaje(texto, tipo = "info") {
@@ -270,6 +349,8 @@ form.addEventListener("submit", async (event) => {
   const extractosFileInput = document.getElementById("extractos_file");
   const contableFileInput = document.getElementById("contable_file");
   const bancoVal = bancoExtractosSelect && bancoExtractosSelect.value;
+  const tieneCheques = chequesCheckbox && chequesCheckbox.checked;
+  const paginaChequesVal = paginaChequesSelect && paginaChequesSelect.value;
 
   if (!bancoVal) {
     agregarMensaje("Debe seleccionar el banco del archivo de extractos.", "error");
@@ -279,11 +360,22 @@ form.addEventListener("submit", async (event) => {
     agregarMensaje("Debe seleccionar ambos archivos antes de comparar.", "error");
     return;
   }
+  if (tieneCheques && !paginaChequesVal) {
+    agregarMensaje(
+      "Si indicás que el extracto tiene cheques diferidos, debés seleccionar la hoja donde están.",
+      "error"
+    );
+    return;
+  }
 
   const formData = new FormData();
   formData.append("banco_extractos", bancoVal);
   formData.append("extractos_file", extractosFileInput.files[0]);
   formData.append("contable_file", contableFileInput.files[0]);
+  formData.append("tiene_cheques_diferidos", tieneCheques ? "true" : "false");
+  if (tieneCheques && paginaChequesVal) {
+    formData.append("pagina_cheques_diferidos", paginaChequesVal);
+  }
 
   conciliarBtn.disabled = true;
   agregarMensaje("Comparando archivos, por favor espere...", "info");

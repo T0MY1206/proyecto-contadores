@@ -200,6 +200,7 @@ form {
 }
 
 #banco-extractos,
+#pagina-cheques-diferidos,
 select.banco-extractos {
   width: 100%;
   max-width: 320px;
@@ -212,9 +213,38 @@ select.banco-extractos {
   cursor: pointer;
 }
 
-#banco-extractos:focus {
+#banco-extractos:focus,
+#pagina-cheques-diferidos:focus {
   outline: 2px solid #2563eb;
   outline-offset: 2px;
+}
+
+#cheques-diferidos-field label {
+  font-size: 0.9rem;
+  color: var(--texto-secundario);
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+#cheques-diferidos-field input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #2563eb;
+}
+
+#cheques-diferidos-detalle {
+  margin-top: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+#info-hojas-extracto {
+  display: block;
+  margin-top: 0.1rem;
+  font-size: 0.8rem;
+  color: var(--texto-muted);
 }
 
 .upload-zone {

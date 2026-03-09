@@ -45,7 +45,7 @@ def _inferir_columnas(columnas: List[str]) -> ColumnConfig:
 
     fecha = buscar([
         "fecha", "fecha extracto", "fecha gasto", "fecha_contable", "fecha_acreditacion",
-        "f_extracto", "f_gasto", "f_contable", "fecha ato", "fecha comp", "fecha valor",
+        "fecha_emision", "f_extracto", "f_gasto", "f_contable", "fecha ato", "fecha comp", "fecha valor",
     ])
     concepto = buscar([
         "concepto", "descripcion", "detalle", "movimiento",
@@ -107,10 +107,12 @@ def _column_config_para_banco(banco_id: str, columnas: List[str]) -> ColumnConfi
 def leer_excel_en_memoria(
     file_bytes: bytes,
     banco_extractos_id: Optional[str] = None,
+    sheet_index: Optional[int] = None,
 ) -> List[Dict[str, Any]]:
     """
     Lee un archivo Excel desde bytes y devuelve una lista de diccionarios (una fila por dict).
-    Usa la primera hoja. Prueba varias filas como encabezado (0..11) para soportar informes con títulos.
+    Usa por defecto la primera hoja. Si se indica sheet_index (1-based), usa esa hoja.
+    Prueba varias filas como encabezado (0..11) para soportar informes con títulos.
     Si banco_extractos_id está definido, usa la configuración de columnas de ese banco (solo para extractos).
     """
     buffer = BytesIO(file_bytes)
@@ -120,7 +122,15 @@ def leer_excel_en_memoria(
         try:
             buffer.seek(0)
             wb = load_workbook(buffer, read_only=False, data_only=True)
-            ws = wb.active
+            if sheet_index is not None:
+                if sheet_index < 1 or sheet_index > len(wb.sheetnames):
+                    wb.close()
+                    raise ValueError(
+                        "El número de hoja seleccionado para cheques diferidos no es válido."
+                    )
+                ws = wb[wb.sheetnames[sheet_index - 1]]
+            else:
+                ws = wb.active
             rows = list(ws.iter_rows(values_only=True))
             wb.close()
 
@@ -203,16 +213,33 @@ def _preparar_filas(
     return resultado
 
 
+def preparar_filas_extractos(
+    filas: List[Dict[str, Any]],
+    banco_extractos_id: Optional[str] = None,
+) -> List[Dict[str, Any]]:
+    """
+    Prepara filas de extractos (normaliza fecha, concepto, monto) para conciliación.
+    Si banco_extractos_id es None, se infieren las columnas.
+    """
+    return _preparar_filas(filas, banco_extractos_id=banco_extractos_id)
+
+
 def comparar_movimientos(
     extractos_filas: List[Dict[str, Any]],
     contable_filas: List[Dict[str, Any]],
     extractos_banco_id: Optional[str] = None,
+    extractos_preparados: Optional[List[Dict[str, Any]]] = None,
 ) -> Dict[str, Any]:
     """
     Compara movimientos por fecha y monto. Devuelve los que no tienen contraparte.
     Si extractos_banco_id está definido, se usa la config de columnas de ese banco para los extractos.
+    Si extractos_preparados está definido, se usa esa lista en lugar de preparar extractos_filas
+    (útil cuando se combinan hoja de extracto + hoja de cheques diferidos).
     """
-    extractos = _preparar_filas(extractos_filas, banco_extractos_id=extractos_banco_id)
+    if extractos_preparados is not None:
+        extractos = extractos_preparados
+    else:
+        extractos = _preparar_filas(extractos_filas, banco_extractos_id=extractos_banco_id)
     contable = _preparar_filas(contable_filas)
 
     usados_extracto: set[int] = set()

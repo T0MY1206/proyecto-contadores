@@ -29,7 +29,7 @@ venv\Scripts\activate.bat
 **4. Instalar dependencias** (solo la primera vez, o si cambiás `requirements.txt`)
 
 ```cmd
-pip install -r requirements.txt
+python -m pip install -r requirements.txt
 ```
 
 **5. Levantar el backend**

@@ -51,6 +51,21 @@
             </label>
           </div>
 
+          <div class="field" id="cheques-diferidos-field" style="display: none;">
+            <span class="field-label">Cheques diferidos en el extracto</span>
+            <label>
+              <input type="checkbox" id="tiene-cheques-diferidos" />
+              El extracto tiene una pestaña específica de cheques diferidos
+            </label>
+            <div id="cheques-diferidos-detalle" style="display: none;">
+              <span class="field-label">Hoja donde están los cheques diferidos</span>
+              <select id="pagina-cheques-diferidos" name="pagina_cheques_diferidos">
+                <option value="" disabled selected>Seleccionar hoja...</option>
+              </select>
+              <small id="info-hojas-extracto"></small>
+            </div>
+          </div>
+
           <div class="field">
             <span class="field-label">Archivo contable (.xlsx)</span>
             <label for="contable_file" class="upload-zone" id="upload-zone-contable">
