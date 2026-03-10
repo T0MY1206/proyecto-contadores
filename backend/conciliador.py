@@ -109,60 +109,74 @@ def leer_excel_en_memoria(
     file_bytes: bytes,
     banco_extractos_id: Optional[str] = None,
     sheet_index: Optional[int] = None,
+    max_rows: int = 200_000,
 ) -> List[Dict[str, Any]]:
     """
     Lee un archivo Excel desde bytes y devuelve una lista de diccionarios (una fila por dict).
     Usa por defecto la primera hoja. Si se indica sheet_index (1-based), usa esa hoja.
     Prueba varias filas como encabezado (0..11) para soportar informes con títulos.
     Si banco_extractos_id está definido, usa la configuración de columnas de ese banco (solo para extractos).
+    Limita la cantidad de filas procesadas con max_rows para evitar consumir demasiada memoria.
     """
     buffer = BytesIO(file_bytes)
     ultimo_error: Exception | None = None
 
-    for header_row in range(12):
-        try:
-            buffer.seek(0)
-            wb = load_workbook(buffer, read_only=False, data_only=True)
-            if sheet_index is not None:
-                if sheet_index < 1 or sheet_index > len(wb.sheetnames):
-                    wb.close()
-                    raise ValueError(
-                        "El número de hoja seleccionado para cheques diferidos no es válido."
-                    )
-                ws = wb[wb.sheetnames[sheet_index - 1]]
-            else:
-                ws = wb.active
-            rows = list(ws.iter_rows(values_only=True))
-            wb.close()
+    try:
+        wb = load_workbook(buffer, read_only=True, data_only=True)
+    except Exception as exc:  # errores de formato/corrupción se manejan más arriba
+        raise exc
 
-            if not rows or len(rows) <= header_row:
-                continue
+    try:
+        if sheet_index is not None:
+            if sheet_index < 1 or sheet_index > len(wb.sheetnames):
+                raise ValueError(
+                    "El número de hoja seleccionado no es válido para este archivo."
+                )
+            ws = wb[wb.sheetnames[sheet_index - 1]]
+        else:
+            ws = wb.active
 
-            headers = [str(c).strip() if c is not None else "" for c in rows[header_row]]
-            config = (
-                _column_config_para_banco(banco_extractos_id, headers)
-                if banco_extractos_id
-                else _inferir_columnas(headers)
+        rows = list(ws.iter_rows(values_only=True))
+
+        if not rows:
+            raise ValueError("El archivo Excel no contiene filas de datos.")
+
+        if len(rows) > max_rows:
+            raise ValueError(
+                f"El archivo Excel tiene demasiadas filas ({len(rows)}). "
+                f"Reducí el tamaño (máximo permitido: {max_rows})."
             )
 
-            data_rows = rows[header_row + 1:]
-            out = []
-            for row in data_rows:
-                if not any(v is not None and str(v).strip() for v in row):
+        max_header_row = min(12, len(rows))
+        for header_row in range(max_header_row):
+            try:
+                if len(rows) <= header_row:
                     continue
-                fila = dict(zip(headers, row)) if row else {}
-                out.append(fila)
-            if out:
-                return out
-        except ValueError as e:
-            ultimo_error = e
-            continue
-        except Exception:
-            buffer.seek(0)
-            raise
+
+                headers = [str(c).strip() if c is not None else "" for c in rows[header_row]]
+                config = (
+                    _column_config_para_banco(banco_extractos_id, headers)
+                    if banco_extractos_id
+                    else _inferir_columnas(headers)
+                )
+
+                data_rows = rows[header_row + 1 :]
+                out: List[Dict[str, Any]] = []
+                for row in data_rows:
+                    if not any(v is not None and str(v).strip() for v in row):
+                        continue
+                    fila = dict(zip(headers, row)) if row else {}
+                    out.append(fila)
+                if out:
+                    return out
+            except ValueError as e:
+                ultimo_error = e
+                continue
+    finally:
+        wb.close()
 
     raise ValueError(
-        ultimo_error.args[0] if ultimo_error else "El archivo Excel no contiene filas de datos."
+        ultimo_error.args[0] if ultimo_error else "El archivo Excel no contiene filas de datos válidos."
     )
 
 

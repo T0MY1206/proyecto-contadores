@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from datetime import datetime
 from io import BytesIO
+import logging
+import time
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,6 +24,11 @@ from . import config
 from .bancos_extractos import BANCOS_EXTRACTOS, get_bancos_lista
 from .conciliador import comparar_movimientos, leer_excel_en_memoria, preparar_filas_extractos
 from .schemas import ErrorResponse
+
+
+logger = logging.getLogger("conciliador")
+
+MAX_UPLOAD_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB por archivo
 
 
 app = FastAPI(
@@ -55,7 +62,7 @@ async def http_exception_handler(_, exc: HTTPException):
         500: {"model": ErrorResponse, "description": "Error interno del servidor."},
     },
 )
-async def conciliar_endpoint(
+def conciliar_endpoint(
     extractos_file: UploadFile = File(..., description="Archivo Excel con los extractos."),
     contable_file: UploadFile = File(..., description="Archivo Excel con el registro contable."),
     banco_extractos: str = Form(..., description="Banco del extracto (santander o provincia)."),
@@ -72,13 +79,22 @@ async def conciliar_endpoint(
         description="Número de hoja (1-based) del archivo de extractos donde están los cheques diferidos (opcional).",
     ),
 ):
+    inicio_total = time.perf_counter()
+    logger.info(
+        "Iniciando conciliación: banco=%s, extractos_hoja=%s, contable_hoja=%s, cheques_hoja=%s",
+        banco_extractos,
+        extractos_hoja_index,
+        contable_hoja_index,
+        cheques_diferidos_hoja_index,
+    )
+
     if not extractos_file or not contable_file:
         raise HTTPException(status_code=400, detail="Debe enviar ambos archivos: extractos y contable.")
     # Solo se valida que esté seleccionado un tipo de extracto en el combo; no se inspecciona el archivo.
     if not banco_extractos or banco_extractos not in BANCOS_EXTRACTOS:
         raise HTTPException(
             status_code=400,
-            detail="Seleccioná el tipo de extracto (Santander o Banco Provincia) en el combo.",
+            detail="Seleccioná el tipo de extracto (Santander, Banco Provincia o Banco Nación) en el combo.",
         )
 
     if extractos_hoja_index < 1 or contable_hoja_index < 1:
@@ -88,30 +104,62 @@ async def conciliar_endpoint(
         )
 
     try:
-        extractos_bytes = await extractos_file.read()
-        contable_bytes = await contable_file.read()
+        # Lectura de archivos en memoria (lado síncrono: este endpoint corre en threadpool)
+        extractos_bytes = extractos_file.file.read()
+        contable_bytes = contable_file.file.read()
 
         if not extractos_bytes:
             raise HTTPException(status_code=400, detail="El archivo de extractos está vacío.")
         if not contable_bytes:
             raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
 
+        if len(extractos_bytes) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo de extractos es demasiado grande para procesarlo en la web. "
+                "Reducí el tamaño del Excel (por ejemplo filtrando el período) e intentá de nuevo.",
+            )
+        if len(contable_bytes) > MAX_UPLOAD_SIZE_BYTES:
+            raise HTTPException(
+                status_code=400,
+                detail="El archivo contable es demasiado grande para procesarlo en la web. "
+                "Reducí el tamaño del Excel (por ejemplo filtrando el período) e intentá de nuevo.",
+            )
+
+        logger.info(
+            "Archivos recibidos: extractos=%d bytes, contable=%d bytes",
+            len(extractos_bytes),
+            len(contable_bytes),
+        )
+
         try:
+            t0 = time.perf_counter()
             # Hoja principal de extractos (siempre obligatoria)
             extractos_principal = leer_excel_en_memoria(
                 extractos_bytes,
                 banco_extractos_id=banco_extractos,
                 sheet_index=extractos_hoja_index,
             )
+            logger.info(
+                "Lectura de extractos completada: %d filas en %.3f s",
+                len(extractos_principal),
+                time.perf_counter() - t0,
+            )
 
             # Hoja de cheques diferidos (opcional). Se lee sin configuración de banco
             # porque suele tener otra estructura de columnas.
             extractos_combinados = None
             if cheques_diferidos_hoja_index is not None:
+                t1 = time.perf_counter()
                 extractos_cheques = leer_excel_en_memoria(
                     extractos_bytes,
                     banco_extractos_id=None,
                     sheet_index=cheques_diferidos_hoja_index,
+                )
+                logger.info(
+                    "Lectura de cheques diferidos completada: %d filas en %.3f s",
+                    len(extractos_cheques),
+                    time.perf_counter() - t1,
                 )
                 prep_principal = preparar_filas_extractos(
                     extractos_principal, banco_extractos_id=banco_extractos
@@ -126,19 +174,31 @@ async def conciliar_endpoint(
             else:
                 extractos_filas = extractos_principal
 
+            t2 = time.perf_counter()
             contable_filas = leer_excel_en_memoria(
                 contable_bytes,
                 banco_extractos_id=None,
                 sheet_index=contable_hoja_index,
             )
+            logger.info(
+                "Lectura de contable completada: %d filas en %.3f s",
+                len(contable_filas),
+                time.perf_counter() - t2,
+            )
         except ValueError as e:
+            logger.warning("Error de validación al leer Excel: %s", e)
             raise HTTPException(status_code=400, detail=str(e))
+        except HTTPException:
+            raise
         except Exception:
+            logger.exception("Error inesperado leyendo los archivos Excel")
             raise HTTPException(
                 status_code=400,
-                detail="No fue posible leer uno de los archivos Excel. Verifique que el formato sea válido (.xlsx).",
+                detail="No fue posible leer uno de los archivos Excel. Verificá que el formato sea válido (.xlsx) "
+                "y que las hojas seleccionadas correspondan al tipo de archivo esperado.",
             )
 
+        t3 = time.perf_counter()
         if extractos_combinados is not None:
             resultado = comparar_movimientos(
                 [], contable_filas, extractos_preparados=extractos_combinados
@@ -147,6 +207,9 @@ async def conciliar_endpoint(
             resultado = comparar_movimientos(
                 extractos_filas, contable_filas, extractos_banco_id=banco_extractos
             )
+        logger.info(
+            "Comparación de movimientos completada en %.3f s", time.perf_counter() - t3
+        )
 
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"comparacion_{timestamp}.xlsx"
@@ -166,6 +229,7 @@ async def conciliar_endpoint(
                 if col:
                     ws.column_dimensions[col[0].column_letter].width = min(max_len + 1, 80)
 
+        t4 = time.perf_counter()
         wb = Workbook()
         ws1 = wb.active
         ws1.title = "Solo en extractos"
@@ -184,16 +248,25 @@ async def conciliar_endpoint(
         wb.save(buffer)
         buffer.seek(0)
         output_path.write_bytes(buffer.read())
+        logger.info(
+            "Generación de Excel de salida completada en %.3f s",
+            time.perf_counter() - t4,
+        )
 
         resultado["excel_filename"] = filename
+        logger.info("Conciliación finalizada en %.3f s", time.perf_counter() - inicio_total)
         return resultado
 
     except HTTPException:
+        # Ya encapsula un mensaje claro para el frontend; solo lo registramos.
+        logger.warning("Conciliación abortada por HTTPException", exc_info=True)
         raise
     except Exception as e:
+        logger.exception("Error interno no controlado durante la conciliación")
         raise HTTPException(
             status_code=500,
-            detail=f"Error interno al comparar los archivos: {e}",
+            detail="Ocurrió un error interno al comparar los archivos. Intentá nuevamente más tarde. "
+            f"Detalle técnico: {e}",
         )
 
 
@@ -235,6 +308,13 @@ async def info_extracto(
     if not contenido:
         raise HTTPException(status_code=400, detail="El archivo de extractos está vacío.")
 
+    if len(contenido) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo de extractos es demasiado grande para inspeccionarlo desde la web. "
+            "Reducí el tamaño del Excel e intentá de nuevo.",
+        )
+
     try:
         buffer = BytesIO(contenido)
         wb = load_workbook(buffer, read_only=True, data_only=True)
@@ -272,6 +352,13 @@ async def info_contable(
     contenido = await contable_file.read()
     if not contenido:
         raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
+
+    if len(contenido) > MAX_UPLOAD_SIZE_BYTES:
+        raise HTTPException(
+            status_code=400,
+            detail="El archivo contable es demasiado grande para inspeccionarlo desde la web. "
+            "Reducí el tamaño del Excel e intentá de nuevo.",
+        )
 
     try:
         buffer = BytesIO(contenido)
