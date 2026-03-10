@@ -34,7 +34,7 @@
         <form id="conciliacion-form">
           <div class="field">
             <span class="field-label">Banco del extracto</span>
-            <select id="banco-extractos" name="banco_extractos" required aria-label="Seleccionar banco del archivo de extractos">
+            <select id="banco-extractos" class="form-select" name="banco_extractos" required aria-label="Seleccionar banco del archivo de extractos">
               <option value="" disabled selected>Seleccionar banco...</option>
               <option value="santander">Santander</option>
               <option value="provincia">Banco Provincia</option>
@@ -54,14 +54,14 @@
 
           <div class="field" id="extractos-hoja-field" style="display: none;">
             <span class="field-label">Hoja de extractos a analizar</span>
-            <select id="extractos-hoja-select" name="extractos_hoja_index">
+            <select id="extractos-hoja-select" class="form-select" name="extractos_hoja_index">
               <option value="" disabled selected>Seleccionar hoja de extractos...</option>
             </select>
           </div>
 
           <div class="field" id="cheques-diferidos-field" style="display: none;">
             <span class="field-label">Hoja de cheques diferidos (opcional)</span>
-            <select id="pagina-cheques-diferidos" name="cheques_diferidos_hoja_index">
+            <select id="pagina-cheques-diferidos" class="form-select" name="cheques_diferidos_hoja_index">
               <option value="" selected>Sin cheques diferidos</option>
             </select>
             <small id="info-hojas-extracto"></small>
@@ -79,7 +79,7 @@
 
           <div class="field" id="contable-hoja-field" style="display: none;">
             <span class="field-label">Hoja contable a analizar</span>
-            <select id="contable-hoja-select" name="contable_hoja_index">
+            <select id="contable-hoja-select" class="form-select" name="contable_hoja_index">
               <option value="" disabled selected>Seleccionar hoja contable...</option>
             </select>
           </div>

@@ -199,24 +199,54 @@ form {
   font-size: 0.95rem;
 }
 
+/* Todos los combos del formulario: mismo estilo */
+.form-select,
 #banco-extractos,
+#extractos-hoja-select,
 #pagina-cheques-diferidos,
-select.banco-extractos {
+#contable-hoja-select {
   width: 100%;
   max-width: 320px;
-  padding: 0.6rem 0.75rem;
+  padding: 0.6rem 2rem 0.6rem 0.75rem;
   font-size: 1rem;
+  font-family: inherit;
   border: 2px solid var(--borde-input);
   border-radius: 8px;
   background: var(--bg-input);
   color: var(--texto);
   cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%234b5563' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  transition: border-color 0.2s ease, background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
+.form-select:hover,
+#banco-extractos:hover,
+#extractos-hoja-select:hover,
+#pagina-cheques-diferidos:hover,
+#contable-hoja-select:hover {
+  border-color: var(--texto-muted);
+  background-color: var(--btn-sec-hover);
+}
+
+.form-select:focus,
 #banco-extractos:focus,
-#pagina-cheques-diferidos:focus {
-  outline: 2px solid #2563eb;
-  outline-offset: 2px;
+#extractos-hoja-select:focus,
+#pagina-cheques-diferidos:focus,
+#contable-hoja-select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.2);
+}
+
+body.dark-theme .form-select,
+body.dark-theme #banco-extractos,
+body.dark-theme #extractos-hoja-select,
+body.dark-theme #pagina-cheques-diferidos,
+body.dark-theme #contable-hoja-select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%2394a3b8' d='M6 8L1 3h10z'/%3E%3C/svg%3E");
 }
 
 #cheques-diferidos-field label {
