@@ -22,7 +22,12 @@ from openpyxl.styles import Font
 
 from . import config
 from .bancos_extractos import BANCOS_EXTRACTOS, get_bancos_lista
-from .conciliador import comparar_movimientos, leer_excel_en_memoria, preparar_filas_extractos
+from .conciliador import (
+    comparar_movimientos,
+    comparar_por_columnas,
+    leer_excel_en_memoria,
+    preparar_filas_extractos,
+)
 from .schemas import ErrorResponse
 
 
@@ -77,6 +82,13 @@ def conciliar_endpoint(
     cheques_diferidos_hoja_index: int | None = Form(
         None,
         description="Número de hoja (1-based) del archivo de extractos donde están los cheques diferidos (opcional).",
+    ),
+    modo_comparacion: str = Form(
+        "fecha_monto",
+        description=(
+            "Modo de comparación: 'fecha_monto' (por defecto), "
+            "'extracto_D_vs_contable_I' o 'contable_H_vs_extracto_E'."
+        ),
     ),
 ):
     inicio_total = time.perf_counter()
@@ -186,14 +198,26 @@ def conciliar_endpoint(
             )
 
         t3 = time.perf_counter()
-        if extractos_combinados is not None:
-            resultado = comparar_movimientos(
-                [], contable_filas, extractos_preparados=extractos_combinados
-            )
+        if modo_comparacion == "fecha_monto":
+            if extractos_combinados is not None:
+                resultado = comparar_movimientos(
+                    [], contable_filas, extractos_preparados=extractos_combinados
+                )
+            else:
+                resultado = comparar_movimientos(
+                    extractos_filas, contable_filas, extractos_banco_id=banco_extractos
+                )
         else:
-            resultado = comparar_movimientos(
-                extractos_filas, contable_filas, extractos_banco_id=banco_extractos
-            )
+            # Modos especiales por columnas específicas; se trabaja solo con la hoja principal.
+            try:
+                resultado = comparar_por_columnas(
+                    extractos_principal,
+                    contable_filas,
+                    modo_comparacion=modo_comparacion,
+                )
+            except ValueError as e:
+                logger.warning("Error en modo de comparación por columnas: %s", e)
+                raise HTTPException(status_code=400, detail=str(e))
         logger.info(
             "Comparación de movimientos completada en %.3f s", time.perf_counter() - t3
         )
@@ -241,6 +265,7 @@ def conciliar_endpoint(
         )
 
         resultado["excel_filename"] = filename
+        resultado["modo_comparacion"] = modo_comparacion
         logger.info("Conciliación finalizada en %.3f s", time.perf_counter() - inicio_total)
         return resultado
 

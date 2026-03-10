@@ -34,13 +34,24 @@
         <form id="conciliacion-form">
           <div class="field">
             <span class="field-label">Banco del extracto</span>
-            <select id="banco-extractos" class="form-select" name="banco_extractos" required aria-label="Seleccionar banco del archivo de extractos">
-              <option value="" disabled selected>Seleccionar banco...</option>
-              <option value="santander">Santander</option>
-              <option value="provincia">Banco Provincia</option>
-              <option value="nacion">Banco Nación</option>
-              <!-- Si el backend está disponible, script.js reemplaza con la lista de /bancos -->
-            </select>
+            <div class="banco-row">
+              <select id="banco-extractos" class="form-select" name="banco_extractos" required aria-label="Seleccionar banco del archivo de extractos">
+                <option value="" disabled selected>Seleccionar banco...</option>
+                <option value="santander">Santander</option>
+                <option value="provincia">Banco Provincia</option>
+                <option value="nacion">Banco Nación</option>
+                <!-- Si el backend está disponible, script.js reemplaza con la lista de /bancos -->
+              </select>
+              <button
+                type="button"
+                id="limpiar-btn"
+                class="secondary-btn limpiar-banco-btn"
+                title="Limpiar selección y archivos"
+                aria-label="Limpiar selección y archivos"
+              >
+                🗑️
+              </button>
+            </div>
           </div>
           <div class="field">
             <span class="field-label">Archivo de extractos (.xlsx)</span>
@@ -84,7 +95,22 @@
             </select>
           </div>
 
-          <button type="submit" id="conciliar-btn">Comparar</button>
+          <div class="field">
+            <span class="field-label">Modo de comparación</span>
+            <select id="modo-comparacion" class="form-select" name="modo_comparacion">
+              <option value="fecha_monto" selected>Fecha + monto (modo estándar)</option>
+              <option value="extracto_D_vs_contable_I">
+                Columna D del extracto vs columna I del contable
+              </option>
+              <option value="contable_H_vs_extracto_E">
+                Columna H del contable vs columna E del extracto
+              </option>
+            </select>
+          </div>
+
+          <div class="field acciones-formulario">
+            <button type="submit" id="conciliar-btn">Comparar</button>
+          </div>
         </form>
 
         <div id="mensajes" class="mensajes"></div>

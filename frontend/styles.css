@@ -193,6 +193,29 @@ form {
   gap: 0.5rem;
 }
 
+.banco-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 420px;
+}
+
+.banco-row #banco-extractos {
+  flex: 1;
+}
+
+.limpiar-banco-btn {
+  padding: 0.55rem 0.75rem;
+  min-width: 0;
+  line-height: 1;
+}
+
+.limpiar-banco-btn span {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
 .field-label {
   font-weight: 600;
   color: var(--texto-titulo);

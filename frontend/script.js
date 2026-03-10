@@ -30,6 +30,8 @@ const paginaChequesSelect = document.getElementById("pagina-cheques-diferidos");
 const infoHojasExtracto = document.getElementById("info-hojas-extracto");
 const contableHojaField = document.getElementById("contable-hoja-field");
 const contableHojaSelect = document.getElementById("contable-hoja-select");
+const modoComparacionSelect = document.getElementById("modo-comparacion");
+const limpiarBtn = document.getElementById("limpiar-btn");
 
 let totalHojasExtracto = null;
 let nombresHojasExtracto = [];
@@ -288,6 +290,22 @@ function limpiarFormulario() {
     bancoExtractosSelect.value = "";
   }
   resetChequesDiferidos();
+  resetContableHojas();
+  if (modoComparacionSelect) {
+    modoComparacionSelect.value = "fecha_monto";
+  }
+  ultimoExcelFilename = null;
+  if (descargarExcelBtn) {
+    descargarExcelBtn.style.display = "none";
+  }
+  resultadoContenedor.hidden = true;
+  limpiarMensajes();
+}
+
+if (limpiarBtn) {
+  limpiarBtn.addEventListener("click", () => {
+    limpiarFormulario();
+  });
 }
 
 function agregarMensaje(texto, tipo = "info") {
@@ -351,9 +369,16 @@ function mostrarResultado(data) {
   const solo_en_extractos = Array.isArray(data.solo_en_extractos) ? data.solo_en_extractos : [];
   const solo_en_contable = Array.isArray(data.solo_en_contable) ? data.solo_en_contable : [];
   const resumen = data.resumen || {};
+  const modo = data.modo_comparacion || "fecha_monto";
+  let descripcionModo = "según el modo seleccionado";
+  if (modo === "fecha_monto") {
+    descripcionModo = "con fecha y monto iguales";
+  }
 
-  resumenTexto.textContent = `${resumen.coincidencias ?? 0} coincidencias (fecha + monto iguales). ` +
-    `${resumen.diferentes_extractos ?? 0} solo en extractos. ${resumen.diferentes_contable ?? 0} solo en contable.`;
+  resumenTexto.textContent =
+    `${resumen.coincidencias ?? 0} coincidencias (${descripcionModo}). ` +
+    `${resumen.diferentes_extractos ?? 0} solo en extractos. ` +
+    `${resumen.diferentes_contable ?? 0} solo en contable.`;
 
   listaExtractos.innerHTML = "";
   listaContable.innerHTML = "";
@@ -415,6 +440,7 @@ form.addEventListener("submit", async (event) => {
   const extractosHojaVal = extractosHojaSelect && extractosHojaSelect.value;
   const contableHojaVal = contableHojaSelect && contableHojaSelect.value;
   const paginaChequesVal = paginaChequesSelect && paginaChequesSelect.value;
+  const modoVal = modoComparacionSelect && modoComparacionSelect.value;
 
   if (!bancoVal) {
     agregarMensaje("Debe seleccionar el banco del archivo de extractos.", "error");
@@ -439,6 +465,7 @@ form.addEventListener("submit", async (event) => {
   formData.append("contable_file", contableFileInput.files[0]);
   formData.append("extractos_hoja_index", extractosHojaVal);
   formData.append("contable_hoja_index", contableHojaVal);
+  formData.append("modo_comparacion", modoVal || "fecha_monto");
   if (paginaChequesVal && paginaChequesVal !== "0" && paginaChequesVal !== "") {
     formData.append("cheques_diferidos_hoja_index", paginaChequesVal);
   }
@@ -469,7 +496,6 @@ form.addEventListener("submit", async (event) => {
     limpiarMensajes();
     agregarMensaje("Comparación completada. Puede descargar el Excel con el resultado.", "success");
     mostrarResultado(data);
-    limpiarFormulario();
   } catch (error) {
     console.error(error);
     limpiarMensajes();
