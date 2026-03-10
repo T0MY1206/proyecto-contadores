@@ -59,13 +59,17 @@ async def conciliar_endpoint(
     extractos_file: UploadFile = File(..., description="Archivo Excel con los extractos."),
     contable_file: UploadFile = File(..., description="Archivo Excel con el registro contable."),
     banco_extractos: str = Form(..., description="Banco del extracto (santander o provincia)."),
-    tiene_cheques_diferidos: bool = Form(
-        False,
-        description="Indica si el extracto tiene una hoja específica de cheques diferidos.",
+    extractos_hoja_index: int = Form(
+        ...,
+        description="Número de hoja (1-based) del archivo de extractos a usar como extracto principal.",
     ),
-    pagina_cheques_diferidos: int | None = Form(
+    contable_hoja_index: int = Form(
+        ...,
+        description="Número de hoja (1-based) del archivo contable a analizar.",
+    ),
+    cheques_diferidos_hoja_index: int | None = Form(
         None,
-        description="Número de hoja (1-based) donde están los cheques diferidos.",
+        description="Número de hoja (1-based) del archivo de extractos donde están los cheques diferidos (opcional).",
     ),
 ):
     if not extractos_file or not contable_file:
@@ -77,13 +81,10 @@ async def conciliar_endpoint(
             detail="Seleccioná el tipo de extracto (Santander o Banco Provincia) en el combo.",
         )
 
-    if tiene_cheques_diferidos and not pagina_cheques_diferidos:
+    if extractos_hoja_index < 1 or contable_hoja_index < 1:
         raise HTTPException(
             status_code=400,
-            detail=(
-                "Si marcás que el extracto tiene cheques diferidos, "
-                "tenés que indicar en qué hoja están."
-            ),
+            detail="Los números de hoja deben ser mayores o iguales a 1.",
         )
 
     try:
@@ -96,17 +97,21 @@ async def conciliar_endpoint(
             raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
 
         try:
-            if tiene_cheques_diferidos and pagina_cheques_diferidos is not None:
-                # Comparar 2 hojas vs contable: hoja 1 (extracto) + hoja de cheques diferidos
-                extractos_principal = leer_excel_en_memoria(
-                    extractos_bytes,
-                    banco_extractos_id=banco_extractos,
-                    sheet_index=1,
-                )
+            # Hoja principal de extractos (siempre obligatoria)
+            extractos_principal = leer_excel_en_memoria(
+                extractos_bytes,
+                banco_extractos_id=banco_extractos,
+                sheet_index=extractos_hoja_index,
+            )
+
+            # Hoja de cheques diferidos (opcional). Se lee sin configuración de banco
+            # porque suele tener otra estructura de columnas.
+            extractos_combinados = None
+            if cheques_diferidos_hoja_index is not None:
                 extractos_cheques = leer_excel_en_memoria(
                     extractos_bytes,
                     banco_extractos_id=None,
-                    sheet_index=pagina_cheques_diferidos,
+                    sheet_index=cheques_diferidos_hoja_index,
                 )
                 prep_principal = preparar_filas_extractos(
                     extractos_principal, banco_extractos_id=banco_extractos
@@ -114,19 +119,18 @@ async def conciliar_endpoint(
                 prep_cheques = preparar_filas_extractos(
                     extractos_cheques, banco_extractos_id=None
                 )
-                # Unir y reasignar ids únicos
                 extractos_combinados = prep_principal + prep_cheques
                 for i, row in enumerate(extractos_combinados):
                     row["id"] = i
-                extractos_filas = None  # no se usa; pasamos extractos_preparados
+                extractos_filas = None
             else:
-                extractos_combinados = None
-                extractos_filas = leer_excel_en_memoria(
-                    extractos_bytes,
-                    banco_extractos_id=banco_extractos,
-                    sheet_index=None,
-                )
-            contable_filas = leer_excel_en_memoria(contable_bytes)
+                extractos_filas = extractos_principal
+
+            contable_filas = leer_excel_en_memoria(
+                contable_bytes,
+                banco_extractos_id=None,
+                sheet_index=contable_hoja_index,
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
         except Exception:
@@ -240,6 +244,44 @@ async def info_extracto(
         raise HTTPException(
             status_code=400,
             detail="No fue posible leer el archivo de extractos. Verifique que el formato sea válido (.xlsx).",
+        )
+
+    return {
+        "total_hojas": len(nombres),
+        "hojas": [
+            {"indice": idx + 1, "nombre": nombre}
+            for idx, nombre in enumerate(nombres)
+        ],
+    }
+
+
+@app.post(
+    "/info_contable",
+    responses={
+        200: {"description": "Información básica del archivo contable (cantidad de hojas)."},
+        400: {"model": ErrorResponse, "description": "Error de validación o entrada."},
+    },
+)
+async def info_contable(
+    contable_file: UploadFile = File(..., description="Archivo Excel contable."),
+):
+    """Devuelve la cantidad de hojas del Excel contable y sus nombres."""
+    if not contable_file:
+        raise HTTPException(status_code=400, detail="Debe enviar un archivo contable.")
+
+    contenido = await contable_file.read()
+    if not contenido:
+        raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
+
+    try:
+        buffer = BytesIO(contenido)
+        wb = load_workbook(buffer, read_only=True, data_only=True)
+        nombres = list(wb.sheetnames)
+        wb.close()
+    except Exception:
+        raise HTTPException(
+            status_code=400,
+            detail="No fue posible leer el archivo contable. Verifique que el formato sea válido (.xlsx).",
         )
 
     return {

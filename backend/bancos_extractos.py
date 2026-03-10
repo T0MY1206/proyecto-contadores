@@ -1,7 +1,7 @@
 """
 Configuración de bancos para archivos de extractos.
 
-El sistema soporta únicamente dos bancos: Santander y Banco Provincia.
+El sistema soporta actualmente tres bancos: Santander, Banco Provincia y Banco Nación.
 Cada uno tiene su propio mapeo de columnas (fecha, concepto, monto).
 Se usa el banco que el usuario selecciona en el combo; no se valida el contenido del archivo.
 """
@@ -78,6 +78,30 @@ BANCOS_EXTRACTOS: Dict[str, Dict[str, Any]] = {
         ],
         "creditos": ["creditos", "crédito", "credito", "haber"],
         "debitos": ["debitos", "débito", "debito", "debe"],
+    },
+    "nacion": {
+        "nombre": "Banco Nación",
+        "fecha": [
+            "fecha",
+        ],
+        "concepto": [
+            "concepto",
+            "descripcion",
+            "detalle",
+            "movimiento",
+            "movimientos",
+        ],
+        "monto": [
+            "monto",
+            "importe",
+            "valor",
+            "neto",
+            "saldo",
+            "debitos",
+            "creditos",
+        ],
+        "creditos": ["creditos", "crédito", "credito"],
+        "debitos": ["debitos", "débito", "debito"],
     },
 }
 

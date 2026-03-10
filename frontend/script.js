@@ -23,14 +23,18 @@ const soloContableDiv = document.getElementById("solo-contable");
 const descargarExcelBtn = document.getElementById("descargar-excel-btn");
 const temaBtn = document.getElementById("tema-btn");
 const bancoExtractosSelect = document.getElementById("banco-extractos");
+const extractosHojaField = document.getElementById("extractos-hoja-field");
+const extractosHojaSelect = document.getElementById("extractos-hoja-select");
 const chequesField = document.getElementById("cheques-diferidos-field");
-const chequesCheckbox = document.getElementById("tiene-cheques-diferidos");
-const chequesDetalle = document.getElementById("cheques-diferidos-detalle");
 const paginaChequesSelect = document.getElementById("pagina-cheques-diferidos");
 const infoHojasExtracto = document.getElementById("info-hojas-extracto");
+const contableHojaField = document.getElementById("contable-hoja-field");
+const contableHojaSelect = document.getElementById("contable-hoja-select");
 
 let totalHojasExtracto = null;
 let nombresHojasExtracto = [];
+let totalHojasContable = null;
+let nombresHojasContable = [];
 
 const TEMA_KEY = "conciliador-tema";
 
@@ -106,8 +110,11 @@ function setupUploadZone(inputId, zoneId, filenameId) {
   if (!input || !zone) return;
   input.addEventListener("change", () => {
     actualizarUploadZone(input, zoneId, filenameId);
+    const file = input.files && input.files[0];
     if (inputId === "extractos_file") {
-      manejarCambioExtractosFile(input.files && input.files[0]);
+      manejarCambioExtractosFile(file);
+    } else if (inputId === "contable_file") {
+      manejarCambioContableFile(file);
     }
   });
   ["dragenter", "dragover"].forEach((ev) => {
@@ -143,17 +150,31 @@ let ultimoExcelFilename = null;
 function resetChequesDiferidos() {
   totalHojasExtracto = null;
   nombresHojasExtracto = [];
-  if (chequesCheckbox) chequesCheckbox.checked = false;
-  if (paginaChequesSelect) {
-    paginaChequesSelect.innerHTML = '<option value="" disabled selected>Seleccionar hoja...</option>';
+  if (extractosHojaSelect) {
+    extractosHojaSelect.innerHTML =
+      '<option value="" disabled selected>Seleccionar hoja de extractos...</option>';
   }
-  if (chequesDetalle) chequesDetalle.style.display = "none";
+  if (paginaChequesSelect) {
+    paginaChequesSelect.innerHTML = '<option value="" selected>Sin cheques diferidos</option>';
+  }
+  if (extractosHojaField) extractosHojaField.style.display = "none";
   if (chequesField) chequesField.style.display = "none";
   if (infoHojasExtracto) infoHojasExtracto.textContent = "";
 }
 
 // Asegurar que el bloque de cheques diferidos esté oculto al cargar la página.
 resetChequesDiferidos();
+
+function resetContableHojas() {
+  totalHojasContable = null;
+  nombresHojasContable = [];
+  if (contableHojaSelect) {
+    contableHojaSelect.innerHTML =
+      '<option value="" disabled selected>Seleccionar hoja contable...</option>';
+  }
+  if (contableHojaField) contableHojaField.style.display = "none";
+}
+resetContableHojas();
 
 async function manejarCambioExtractosFile(file) {
   resetChequesDiferidos();
@@ -170,27 +191,28 @@ async function manejarCambioExtractosFile(file) {
     const total = typeof data.total_hojas === "number" ? data.total_hojas : 0;
     const hojas = Array.isArray(data.hojas) ? data.hojas : [];
     totalHojasExtracto = total;
-    nombresHojasExtracto = hojas.map((h) => h && h.nombre ? h.nombre : `Hoja ${h.indice || ""}`);
-    if (chequesField && totalHojasExtracto > 0) {
-      chequesField.style.display = "flex";
-    }
-    if (infoHojasExtracto && totalHojasExtracto > 0) {
-      infoHojasExtracto.textContent =
-        totalHojasExtracto === 1
-          ? "El archivo de extractos tiene 1 hoja."
-          : `El archivo de extractos tiene ${totalHojasExtracto} hojas.`;
-    }
-  } catch (_) {
-    // Si falla, se deja el check oculto y no se interrumpe el flujo principal.
-  }
-}
+    nombresHojasExtracto = hojas.map((h) =>
+      h && h.nombre ? h.nombre : `Hoja ${h.indice || ""}`
+    );
 
-if (chequesCheckbox) {
-  chequesCheckbox.addEventListener("change", () => {
-    if (!chequesDetalle) return;
-    if (chequesCheckbox.checked) {
-      if (paginaChequesSelect && totalHojasExtracto && totalHojasExtracto > 0) {
-        paginaChequesSelect.innerHTML = '<option value="" disabled selected>Seleccionar hoja...</option>';
+    if (totalHojasExtracto > 0) {
+      if (extractosHojaField) extractosHojaField.style.display = "flex";
+      if (chequesField) chequesField.style.display = "flex";
+
+      if (extractosHojaSelect) {
+        extractosHojaSelect.innerHTML =
+          '<option value="" disabled selected>Seleccionar hoja de extractos...</option>';
+        nombresHojasExtracto.forEach((nombre, idx) => {
+          const opt = document.createElement("option");
+          opt.value = String(idx + 1);
+          opt.textContent = `${idx + 1} - ${nombre}`;
+          extractosHojaSelect.appendChild(opt);
+        });
+      }
+
+      if (paginaChequesSelect) {
+        paginaChequesSelect.innerHTML =
+          '<option value="" selected>Sin cheques diferidos</option>';
         nombresHojasExtracto.forEach((nombre, idx) => {
           const opt = document.createElement("option");
           opt.value = String(idx + 1);
@@ -198,11 +220,52 @@ if (chequesCheckbox) {
           paginaChequesSelect.appendChild(opt);
         });
       }
-      chequesDetalle.style.display = "flex";
-    } else {
-      chequesDetalle.style.display = "none";
+
+      if (infoHojasExtracto) {
+        infoHojasExtracto.textContent =
+          totalHojasExtracto === 1
+            ? "El archivo de extractos tiene 1 hoja."
+            : `El archivo de extractos tiene ${totalHojasExtracto} hojas.`;
+      }
     }
-  });
+  } catch (_) {
+    // Si falla, se deja el check oculto y no se interrumpe el flujo principal.
+  }
+}
+
+async function manejarCambioContableFile(file) {
+  resetContableHojas();
+  if (!file) return;
+  try {
+    const formData = new FormData();
+    formData.append("contable_file", file);
+    const response = await fetch(`${API_BASE_URL}/info_contable`, {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) return;
+    const data = await response.json();
+    const total = typeof data.total_hojas === "number" ? data.total_hojas : 0;
+    const hojas = Array.isArray(data.hojas) ? data.hojas : [];
+    totalHojasContable = total;
+    nombresHojasContable = hojas.map((h) =>
+      h && h.nombre ? h.nombre : `Hoja ${h.indice || ""}`
+    );
+
+    if (totalHojasContable > 0 && contableHojaField && contableHojaSelect) {
+      contableHojaField.style.display = "flex";
+      contableHojaSelect.innerHTML =
+        '<option value="" disabled selected>Seleccionar hoja contable...</option>';
+      nombresHojasContable.forEach((nombre, idx) => {
+        const opt = document.createElement("option");
+        opt.value = String(idx + 1);
+        opt.textContent = `${idx + 1} - ${nombre}`;
+        contableHojaSelect.appendChild(opt);
+      });
+    }
+  } catch (_) {
+    // si falla, no mostramos el combo pero no interrumpimos el flujo principal
+  }
 }
 
 function limpiarMensajes() {
@@ -349,7 +412,8 @@ form.addEventListener("submit", async (event) => {
   const extractosFileInput = document.getElementById("extractos_file");
   const contableFileInput = document.getElementById("contable_file");
   const bancoVal = bancoExtractosSelect && bancoExtractosSelect.value;
-  const tieneCheques = chequesCheckbox && chequesCheckbox.checked;
+  const extractosHojaVal = extractosHojaSelect && extractosHojaSelect.value;
+  const contableHojaVal = contableHojaSelect && contableHojaSelect.value;
   const paginaChequesVal = paginaChequesSelect && paginaChequesSelect.value;
 
   if (!bancoVal) {
@@ -360,11 +424,12 @@ form.addEventListener("submit", async (event) => {
     agregarMensaje("Debe seleccionar ambos archivos antes de comparar.", "error");
     return;
   }
-  if (tieneCheques && !paginaChequesVal) {
-    agregarMensaje(
-      "Si indicás que el extracto tiene cheques diferidos, debés seleccionar la hoja donde están.",
-      "error"
-    );
+  if (!extractosHojaVal) {
+    agregarMensaje("Debe seleccionar la hoja de extractos a analizar.", "error");
+    return;
+  }
+  if (!contableHojaVal) {
+    agregarMensaje("Debe seleccionar la hoja contable a analizar.", "error");
     return;
   }
 
@@ -372,9 +437,10 @@ form.addEventListener("submit", async (event) => {
   formData.append("banco_extractos", bancoVal);
   formData.append("extractos_file", extractosFileInput.files[0]);
   formData.append("contable_file", contableFileInput.files[0]);
-  formData.append("tiene_cheques_diferidos", tieneCheques ? "true" : "false");
-  if (tieneCheques && paginaChequesVal) {
-    formData.append("pagina_cheques_diferidos", paginaChequesVal);
+  formData.append("extractos_hoja_index", extractosHojaVal);
+  formData.append("contable_hoja_index", contableHojaVal);
+  if (paginaChequesVal && paginaChequesVal !== "0" && paginaChequesVal !== "") {
+    formData.append("cheques_diferidos_hoja_index", paginaChequesVal);
   }
 
   conciliarBtn.disabled = true;

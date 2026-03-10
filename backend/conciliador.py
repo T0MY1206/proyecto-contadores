@@ -6,9 +6,10 @@ Lee Excel con openpyxl y compara por fecha y monto (sin pandas).
 
 from __future__ import annotations
 
+from collections import defaultdict
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from openpyxl import load_workbook
 
@@ -242,6 +243,13 @@ def comparar_movimientos(
         extractos = _preparar_filas(extractos_filas, banco_extractos_id=extractos_banco_id)
     contable = _preparar_filas(contable_filas)
 
+    # Índice (fecha_norm, monto_norm) -> lista de ids contable para emparejar 1 a 1.
+    # Así la búsqueda es O(1) por extracto en lugar de O(m), evitando timeout en Render.
+    contable_por_clave: Dict[Tuple[Any, Any], List[int]] = defaultdict(list)
+    for row in contable:
+        key = (row["fecha_norm"], row["monto_norm"])
+        contable_por_clave[key].append(row["id"])
+
     usados_extracto: set[int] = set()
     usados_contable: set[int] = set()
 
@@ -249,13 +257,12 @@ def comparar_movimientos(
         id_e = ext["id"]
         if id_e in usados_extracto:
             continue
-        for cont in contable:
-            if cont["id"] in usados_contable:
-                continue
-            if ext["fecha_norm"] == cont["fecha_norm"] and ext["monto_norm"] == cont["monto_norm"]:
-                usados_extracto.add(id_e)
-                usados_contable.add(cont["id"])
-                break
+        key = (ext["fecha_norm"], ext["monto_norm"])
+        candidatos = contable_por_clave.get(key)
+        if candidatos:
+            cont_id = candidatos.pop()
+            usados_extracto.add(id_e)
+            usados_contable.add(cont_id)
 
     solo_en_extractos: List[Dict[str, Any]] = []
     solo_en_contable: List[Dict[str, Any]] = []

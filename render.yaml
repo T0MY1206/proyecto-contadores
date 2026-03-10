@@ -9,6 +9,10 @@ services:
     buildCommand: pip install -r requirements.txt
     startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 
+    # En plan free el timeout de request suele ser 30s. Si falla con 502 en archivos grandes,
+    # en Dashboard → Service → Settings → aumentá "Request timeout" (planes de pago).
+    # La conciliación está optimizada (índice por fecha+monto) para evitar timeouts.
+
     # Carpeta de salida de Excels (efímera en plan free; se pierde al dormir el servicio).
     # La descarga inmediata tras conciliar sí funciona.
     envVars: []

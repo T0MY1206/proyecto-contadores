@@ -38,6 +38,7 @@
               <option value="" disabled selected>Seleccionar banco...</option>
               <option value="santander">Santander</option>
               <option value="provincia">Banco Provincia</option>
+              <option value="nacion">Banco Nación</option>
               <!-- Si el backend está disponible, script.js reemplaza con la lista de /bancos -->
             </select>
           </div>
@@ -51,19 +52,19 @@
             </label>
           </div>
 
+          <div class="field" id="extractos-hoja-field" style="display: none;">
+            <span class="field-label">Hoja de extractos a analizar</span>
+            <select id="extractos-hoja-select" name="extractos_hoja_index">
+              <option value="" disabled selected>Seleccionar hoja de extractos...</option>
+            </select>
+          </div>
+
           <div class="field" id="cheques-diferidos-field" style="display: none;">
-            <span class="field-label">Cheques diferidos en el extracto</span>
-            <label>
-              <input type="checkbox" id="tiene-cheques-diferidos" />
-              El extracto tiene una pestaña específica de cheques diferidos
-            </label>
-            <div id="cheques-diferidos-detalle" style="display: none;">
-              <span class="field-label">Hoja donde están los cheques diferidos</span>
-              <select id="pagina-cheques-diferidos" name="pagina_cheques_diferidos">
-                <option value="" disabled selected>Seleccionar hoja...</option>
-              </select>
-              <small id="info-hojas-extracto"></small>
-            </div>
+            <span class="field-label">Hoja de cheques diferidos (opcional)</span>
+            <select id="pagina-cheques-diferidos" name="cheques_diferidos_hoja_index">
+              <option value="" selected>Sin cheques diferidos</option>
+            </select>
+            <small id="info-hojas-extracto"></small>
           </div>
 
           <div class="field">
@@ -74,6 +75,13 @@
               <span class="upload-text">Arrastrá un archivo .xlsx o hacé clic para elegir</span>
               <span class="upload-filename" id="filename-contable"></span>
             </label>
+          </div>
+
+          <div class="field" id="contable-hoja-field" style="display: none;">
+            <span class="field-label">Hoja contable a analizar</span>
+            <select id="contable-hoja-select" name="contable_hoja_index">
+              <option value="" disabled selected>Seleccionar hoja contable...</option>
+            </select>
           </div>
 
           <button type="submit" id="conciliar-btn">Comparar</button>
