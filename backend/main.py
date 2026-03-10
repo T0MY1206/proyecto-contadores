@@ -113,19 +113,6 @@ def conciliar_endpoint(
         if not contable_bytes:
             raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
 
-        if len(extractos_bytes) > MAX_UPLOAD_SIZE_BYTES:
-            raise HTTPException(
-                status_code=400,
-                detail="El archivo de extractos es demasiado grande para procesarlo en la web. "
-                "Reducí el tamaño del Excel (por ejemplo filtrando el período) e intentá de nuevo.",
-            )
-        if len(contable_bytes) > MAX_UPLOAD_SIZE_BYTES:
-            raise HTTPException(
-                status_code=400,
-                detail="El archivo contable es demasiado grande para procesarlo en la web. "
-                "Reducí el tamaño del Excel (por ejemplo filtrando el período) e intentá de nuevo.",
-            )
-
         logger.info(
             "Archivos recibidos: extractos=%d bytes, contable=%d bytes",
             len(extractos_bytes),
@@ -352,13 +339,6 @@ async def info_contable(
     contenido = await contable_file.read()
     if not contenido:
         raise HTTPException(status_code=400, detail="El archivo contable está vacío.")
-
-    if len(contenido) > MAX_UPLOAD_SIZE_BYTES:
-        raise HTTPException(
-            status_code=400,
-            detail="El archivo contable es demasiado grande para inspeccionarlo desde la web. "
-            "Reducí el tamaño del Excel e intentá de nuevo.",
-        )
 
     try:
         buffer = BytesIO(contenido)

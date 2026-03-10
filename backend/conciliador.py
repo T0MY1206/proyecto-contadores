@@ -136,16 +136,37 @@ def leer_excel_en_memoria(
         else:
             ws = wb.active
 
-        rows = list(ws.iter_rows(values_only=True))
+        # Construimos una lista de filas visibles (no ocultas por filtros)
+        # y no completamente vacías. Esto respeta lo que ve el usuario en Excel.
+        rows: List[List[Any]] = []
+        visible_count = 0
+        # Usamos enumerate para obtener el índice de fila, evitando depender de cell.row,
+        # que no siempre existe en EmptyCell cuando read_only=True.
+        for row_index, row in enumerate(ws.iter_rows(), start=1):
+            if not row:
+                continue
+            # En modo read_only (ReadOnlyWorksheet) no siempre existe row_dimensions.
+            if hasattr(ws, "row_dimensions"):
+                row_dim = ws.row_dimensions.get(row_index)
+                if row_dim is not None and getattr(row_dim, "hidden", False):
+                    # Fila oculta por filtro u otra razón: se ignora
+                    continue
+
+            values = [cell.value for cell in row]
+            if not any(v is not None and str(v).strip() for v in values):
+                # Fila completamente vacía o con solo blancos: ignorar
+                continue
+
+            rows.append(values)
+            visible_count += 1
+            if visible_count > max_rows:
+                raise ValueError(
+                    f"El archivo Excel tiene demasiadas filas visibles ({visible_count}). "
+                    f"Reducí el tamaño (máximo permitido: {max_rows})."
+                )
 
         if not rows:
-            raise ValueError("El archivo Excel no contiene filas de datos.")
-
-        if len(rows) > max_rows:
-            raise ValueError(
-                f"El archivo Excel tiene demasiadas filas ({len(rows)}). "
-                f"Reducí el tamaño (máximo permitido: {max_rows})."
-            )
+            raise ValueError("El archivo Excel no contiene filas de datos visibles.")
 
         max_header_row = min(12, len(rows))
         for header_row in range(max_header_row):
@@ -162,10 +183,10 @@ def leer_excel_en_memoria(
 
                 data_rows = rows[header_row + 1 :]
                 out: List[Dict[str, Any]] = []
-                for row in data_rows:
-                    if not any(v is not None and str(v).strip() for v in row):
+                for row_values in data_rows:
+                    if not any(v is not None and str(v).strip() for v in row_values):
                         continue
-                    fila = dict(zip(headers, row)) if row else {}
+                    fila = dict(zip(headers, row_values)) if row_values else {}
                     out.append(fila)
                 if out:
                     return out
